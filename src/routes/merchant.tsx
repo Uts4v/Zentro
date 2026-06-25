@@ -41,29 +41,31 @@ function MerchantLayout() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    // Wait until auth has fully initialised before making redirect decisions
-    if (loading) return;
-    if (!user) {
-      navigate({ to: "/auth/merchant" as any, replace: true });
-      return;
-    }
-    // User is logged in but has no merchant profile → wrong account type
-    if (user && !merchantProfile) {
-      supabase.auth.signOut().then(() => {
-        navigate({ to: "/auth/merchant" as any, replace: true });
-      });
-    }
-  }, [user, merchantProfile, loading]);
+ useEffect(() => {
+  if (loading) return; // auth + both profile fetches still in progress
 
-  // Show spinner while auth is loading OR while we're about to redirect
-  if (loading || !user || !merchantProfile) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+  if (!user) {
+    navigate({ to: "/auth/merchant" as any, replace: true });
+    return;
   }
+
+  // merchantProfile is definitively null (fetch completed, no row found)
+  // AND loading is false means both fetches are done
+  if (merchantProfile === null) {
+    supabase.auth.signOut().then(() => {
+      navigate({ to: "/auth/merchant" as any, replace: true });
+    });
+  }
+}, [user, merchantProfile, loading]);
+
+// Show spinner while loading — covers both auth init AND profile fetches
+if (loading || !user || !merchantProfile) {
+  return (
+    <div className="flex min-h-dvh items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
   async function handleSignOut() {
     await signOut();
