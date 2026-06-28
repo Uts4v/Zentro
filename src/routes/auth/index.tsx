@@ -1,11 +1,11 @@
 // routes/auth.tsx
-import { createFileRoute, Link, Outlet, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth, OAUTH_INTENT_KEY } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { Loader2, Mail, Lock, User, ArrowRight } from "lucide-react";
 
-export const Route = createFileRoute("/auth")({
+export const Route = createFileRoute("/auth/")({
   validateSearch: (search: Record<string, unknown>) => ({
     redirect: (search.redirect as string) || undefined,
   }),
@@ -24,7 +24,7 @@ function Auth() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const { signIn, signUp }      = useAuth();
   const navigate                = useNavigate();
-  const { redirect }            = useSearch({ from: "/auth" });
+  const { redirect } = useSearch({ from: "/auth/" });
 
   // Handle OAuth callback
   useEffect(() => {
@@ -269,8 +269,6 @@ function Auth() {
       >
         Are you a business? → Merchant sign in
       </Link>
-
-      <Outlet />
     </div>
   );
 }

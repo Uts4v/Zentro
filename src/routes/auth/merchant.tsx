@@ -29,46 +29,58 @@ function MerchantAuth() {
   const { redirect, rejected } = useSearch({ from: "/auth/merchant" });
 
   // Surface the reason if merchant.tsx bounced a rejected account back here.
-  useEffect(() => {
-    if (rejected === "true") {
-      setError(
-        "Your store application was not approved. Contact support if you think this is a mistake."
-      );
+  // Replace this block in auth.merchant.tsx:
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  const hash = window.location.hash;
+  if (!hash || !hash.includes("access_token")) return;
+
+  setOauthLoading(true);
+  supabase.auth.getSession().then(({ data: { session } }) => {  // ← RACE: token may not be ready
+    if (!session) {
+      setOauthLoading(false);
+      return;
     }
-  }, [rejected]);
+    window.history.replaceState(null, "", window.location.pathname);
+    navigate({ to: (redirect || "/merchant") as any, replace: true });
+  });
+}, []);
 
-  // Handle OAuth callback — Supabase redirects back here with tokens in URL hash
-  //
-  // FIX: this used to run its own independent merchant_profiles check here,
-  // racing against AuthProvider's ensureProfileExists() + merchant.tsx's own
-  // guard effect. Two separate code paths were deciding "is this a merchant"
-  // off the same SIGNED_IN event, with no coordination between them — that
-  // race is what caused merchant OAuth signups to intermittently land as
-  // customers. merchant.tsx is now the single source of truth for that
-  // decision (it waits for `loading` to settle, then checks merchantProfile).
-  // This effect's only job now is to wait for the session and hand off.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hash = window.location.hash;
-    if (!hash || !hash.includes("access_token")) return;
+// With this:
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  const hash = window.location.hash;
+  if (!hash || !hash.includes("access_token")) return;
 
-    setOauthLoading(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        setOauthLoading(false);
-        return;
+  setOauthLoading(true);
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    (event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        subscription.unsubscribe();
+        window.history.replaceState(null, "", window.location.pathname);
+        navigate({ to: (redirect || "/merchant") as any, replace: true });
       }
+    }
+  );
+
+  // Fallback in case the event already fired
+  const fallback = setTimeout(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      subscription.unsubscribe();
       window.history.replaceState(null, "", window.location.pathname);
-
-      // Don't query merchant_profiles here — AuthProvider's
-      // ensureProfileExists() (using the intent we stashed before the
-      // redirect) and merchant.tsx's guard effect own that decision.
-      // If this account genuinely isn't a merchant, merchant.tsx will
-      // catch it on mount and bounce back here with a clear reason.
       navigate({ to: (redirect || "/merchant") as any, replace: true });
-    });
-  }, []);
+    } else {
+      setOauthLoading(false);
+    }
+  }, 3000);
 
+  return () => {
+    clearTimeout(fallback);
+    subscription.unsubscribe();
+  };
+}, []);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);

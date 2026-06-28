@@ -1,0 +1,169 @@
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+import { Loader2, Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
+
+export const Route = createFileRoute("/auth/admin")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: (search.redirect as string) || undefined,
+    unauthorized: (search.unauthorized as string) || undefined,
+  }),
+  head: () => ({ meta: [{ title: "Admin Sign In · Zentro" }] }),
+  component: AdminAuth,
+});
+
+function AdminAuth() {
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError]       = useState<string | null>(null);
+  const [busy, setBusy]         = useState(false);
+  const { signIn }              = useAuth();
+  const navigate                = useNavigate();
+  const { redirect, unauthorized } = useSearch({ from: "/auth/admin" });
+
+  useEffect(() => {
+    if (unauthorized === "true") {
+      setError("You don't have permission to access that page.");
+    }
+  }, [unauthorized]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const { error: err } = await signIn(email, password);
+      if (err) { setError(err); return; }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setError("Sign in failed. Please try again."); return; }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      if (!profile || profile.role !== "admin") {
+        setError("This account does not have admin access.");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      navigate({ to: (redirect || "/admin") as any, replace: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col px-5 pb-10 pt-10">
+      <Link to="/" className="font-display text-2xl text-ink">
+        zentro<span className="text-ember">.</span>
+        <span className="ml-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          admin
+        </span>
+      </Link>
+
+      <div className="mt-12">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          Restricted access
+        </p>
+        <h1 className="font-display mt-2 text-5xl leading-[1.05] text-ink">
+          Admin portal.
+        </h1>
+        <p className="mt-3 max-w-[300px] text-sm text-muted-foreground">
+          Sign in with your admin credentials to continue.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mt-6 rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="mt-10 space-y-3">
+        <Field
+          label="Email"
+          placeholder="admin@zentro.com"
+          type="email"
+          icon={<Mail className="h-4 w-4" />}
+          value={email}
+          onChange={setEmail}
+        />
+        <Field
+          label="Password"
+          placeholder="••••••••"
+          type="password"
+          icon={<Lock className="h-4 w-4" />}
+          value={password}
+          onChange={setPassword}
+        />
+
+        <button
+          type="submit"
+          disabled={busy}
+          className="mt-6 grid h-14 w-full place-items-center rounded-2xl bg-ink text-sm font-medium text-primary-foreground shadow-ember transition-all hover:opacity-90 disabled:opacity-50"
+        >
+          {busy ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <span className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Sign in to admin
+            </span>
+          )}
+        </button>
+      </form>
+
+      <div className="mt-auto pt-8 space-y-2 text-center">
+        <Link
+          to="/auth/"
+          className="block text-xs text-muted-foreground hover:text-ink hover:underline"
+        >
+          Customer sign in →
+        </Link>
+        <Link
+          to="/auth/merchant"
+          className="block text-xs text-muted-foreground hover:text-ink hover:underline"
+        >
+          Merchant sign in →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label, placeholder, type = "text", icon, value, onChange,
+}: {
+  label: string; placeholder: string; type?: string;
+  icon?: React.ReactNode; value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </span>
+      <div className="relative mt-1.5">
+        {icon && (
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+            {icon}
+          </span>
+        )}
+        <input
+          type={type}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required
+          className={`h-14 w-full rounded-2xl bg-mist text-sm text-ink outline-none transition-all placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40 ${
+            icon ? "pl-11" : "px-4"
+          } pr-4`}
+        />
+      </div>
+    </label>
+  );
+}

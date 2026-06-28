@@ -21,9 +21,9 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 const PUBLIC_ROUTES = [
   "/auth",
   "/auth/merchant",
+  "/auth/admin",
   "/auth/forgot-password",
 ];
-
 // ── Auth gate — rendered inside AuthProvider so useAuth() works ───────────────
 function AuthGate() {
   const { user, merchantProfile, loading } = useAuth();
@@ -49,14 +49,31 @@ function AuthGate() {
     if (isPublic) return;
 
     // Not logged in and on a protected route → send to the right login page
-    if (!user) {
-      navigate({
-        to: (isMerchant ? "/auth/merchant" : "/auth") as any,
-        search: { redirect: pathname },
-        replace: true,
-      });
-      return;
-    }
+// Change this:
+if (!user) {
+  navigate({
+    to: (isMerchant ? "/auth/merchant" : "/auth") as any,
+    search: { redirect: pathname },
+    replace: true,
+  });
+  return;
+}
+
+// To this:
+if (!user) {
+  const loginPage = isMerchant
+    ? "/auth/merchant"
+    : isAdminRoute
+    ? "/auth/admin"
+    : "/auth";
+
+  navigate({
+    to: loginPage as any,
+    search: { redirect: pathname },
+    replace: true,
+  });
+  return;
+}
 
     // FIX: previously this gate only checked `if (user) return;` — any
     // logged-in session, regardless of role, was let straight through to

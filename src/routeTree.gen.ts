@@ -17,10 +17,10 @@ import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as LoyaltyRouteImport } from './routes/loyalty'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as CartRouteImport } from './routes/cart'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MerchantIndexRouteImport } from './routes/merchant.index'
+import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StoresIdRouteImport } from './routes/stores_.$id'
 import { Route as OrdersIdRouteImport } from './routes/orders.$id'
@@ -32,8 +32,12 @@ import { Route as MerchantAnalyticsRouteImport } from './routes/merchant.analyti
 import { Route as CustomerOrdersRouteImport } from './routes/customer.orders'
 import { Route as CustomerOrderRouteImport } from './routes/customer.order'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
-import { Route as AuthMerchantRouteImport } from './routes/auth.merchant'
+import { Route as AuthMerchantRouteImport } from './routes/auth/merchant'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
+import { Route as AuthAdminRouteImport } from './routes/auth/admin'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminMerchantsRouteImport } from './routes/admin.merchants'
+import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 
 const StoresRoute = StoresRouteImport.update({
   id: '/stores',
@@ -75,11 +79,6 @@ const CartRoute = CartRouteImport.update({
   path: '/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -94,6 +93,11 @@ const MerchantIndexRoute = MerchantIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => MerchantRoute,
+} as any)
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/auth/',
+  path: '/auth/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
@@ -146,25 +150,44 @@ const CustomerOrderRoute = CustomerOrderRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => AuthRoute,
+  id: '/auth/reset-password',
+  path: '/auth/reset-password',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthMerchantRoute = AuthMerchantRouteImport.update({
-  id: '/merchant',
-  path: '/merchant',
-  getParentRoute: () => AuthRoute,
+  id: '/auth/merchant',
+  path: '/auth/merchant',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => AuthRoute,
+  id: '/auth/forgot-password',
+  path: '/auth/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthAdminRoute = AuthAdminRouteImport.update({
+  id: '/auth/admin',
+  path: '/auth/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMerchantsRoute = AdminMerchantsRouteImport.update({
+  id: '/merchants',
+  path: '/merchants',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AdminRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
-  '/auth': typeof AuthRouteWithChildren
   '/cart': typeof CartRoute
   '/leaderboard': typeof LeaderboardRoute
   '/loyalty': typeof LoyaltyRoute
@@ -173,6 +196,10 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/rewards': typeof RewardsRoute
   '/stores': typeof StoresRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/merchants': typeof AdminMerchantsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/auth/admin': typeof AuthAdminRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/merchant': typeof AuthMerchantRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -186,11 +213,11 @@ export interface FileRoutesByFullPath {
   '/orders/$id': typeof OrdersIdRoute
   '/stores/$id': typeof StoresIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/auth/': typeof AuthIndexRoute
   '/merchant/': typeof MerchantIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRouteWithChildren
   '/cart': typeof CartRoute
   '/leaderboard': typeof LeaderboardRoute
   '/loyalty': typeof LoyaltyRoute
@@ -198,6 +225,10 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/rewards': typeof RewardsRoute
   '/stores': typeof StoresRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/merchants': typeof AdminMerchantsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/auth/admin': typeof AuthAdminRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/merchant': typeof AuthMerchantRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -211,13 +242,13 @@ export interface FileRoutesByTo {
   '/orders/$id': typeof OrdersIdRoute
   '/stores/$id': typeof StoresIdRoute
   '/admin': typeof AdminIndexRoute
+  '/auth': typeof AuthIndexRoute
   '/merchant': typeof MerchantIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
-  '/auth': typeof AuthRouteWithChildren
   '/cart': typeof CartRoute
   '/leaderboard': typeof LeaderboardRoute
   '/loyalty': typeof LoyaltyRoute
@@ -226,6 +257,10 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/rewards': typeof RewardsRoute
   '/stores': typeof StoresRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/merchants': typeof AdminMerchantsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/auth/admin': typeof AuthAdminRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/merchant': typeof AuthMerchantRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -239,6 +274,7 @@ export interface FileRoutesById {
   '/orders/$id': typeof OrdersIdRoute
   '/stores_/$id': typeof StoresIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/auth/': typeof AuthIndexRoute
   '/merchant/': typeof MerchantIndexRoute
 }
 export interface FileRouteTypes {
@@ -246,7 +282,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
-    | '/auth'
     | '/cart'
     | '/leaderboard'
     | '/loyalty'
@@ -255,6 +290,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/rewards'
     | '/stores'
+    | '/admin/analytics'
+    | '/admin/merchants'
+    | '/admin/users'
+    | '/auth/admin'
     | '/auth/forgot-password'
     | '/auth/merchant'
     | '/auth/reset-password'
@@ -268,11 +307,11 @@ export interface FileRouteTypes {
     | '/orders/$id'
     | '/stores/$id'
     | '/admin/'
+    | '/auth/'
     | '/merchant/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
     | '/cart'
     | '/leaderboard'
     | '/loyalty'
@@ -280,6 +319,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/rewards'
     | '/stores'
+    | '/admin/analytics'
+    | '/admin/merchants'
+    | '/admin/users'
+    | '/auth/admin'
     | '/auth/forgot-password'
     | '/auth/merchant'
     | '/auth/reset-password'
@@ -293,12 +336,12 @@ export interface FileRouteTypes {
     | '/orders/$id'
     | '/stores/$id'
     | '/admin'
+    | '/auth'
     | '/merchant'
   id:
     | '__root__'
     | '/'
     | '/admin'
-    | '/auth'
     | '/cart'
     | '/leaderboard'
     | '/loyalty'
@@ -307,6 +350,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/rewards'
     | '/stores'
+    | '/admin/analytics'
+    | '/admin/merchants'
+    | '/admin/users'
+    | '/auth/admin'
     | '/auth/forgot-password'
     | '/auth/merchant'
     | '/auth/reset-password'
@@ -320,13 +367,13 @@ export interface FileRouteTypes {
     | '/orders/$id'
     | '/stores_/$id'
     | '/admin/'
+    | '/auth/'
     | '/merchant/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
-  AuthRoute: typeof AuthRouteWithChildren
   CartRoute: typeof CartRoute
   LeaderboardRoute: typeof LeaderboardRoute
   LoyaltyRoute: typeof LoyaltyRoute
@@ -335,10 +382,15 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   RewardsRoute: typeof RewardsRoute
   StoresRoute: typeof StoresRoute
+  AuthAdminRoute: typeof AuthAdminRoute
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
+  AuthMerchantRoute: typeof AuthMerchantRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   CustomerOrderRoute: typeof CustomerOrderRoute
   CustomerOrdersRoute: typeof CustomerOrdersRoute
   OrdersIdRoute: typeof OrdersIdRoute
   StoresIdRoute: typeof StoresIdRoute
+  AuthIndexRoute: typeof AuthIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -399,13 +451,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -426,6 +471,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/merchant/'
       preLoaderRoute: typeof MerchantIndexRouteImport
       parentRoute: typeof MerchantRoute
+    }
+    '/auth/': {
+      id: '/auth/'
+      path: '/auth'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/': {
       id: '/admin/'
@@ -499,51 +551,71 @@ declare module '@tanstack/react-router' {
     }
     '/auth/reset-password': {
       id: '/auth/reset-password'
-      path: '/reset-password'
+      path: '/auth/reset-password'
       fullPath: '/auth/reset-password'
       preLoaderRoute: typeof AuthResetPasswordRouteImport
-      parentRoute: typeof AuthRoute
+      parentRoute: typeof rootRouteImport
     }
     '/auth/merchant': {
       id: '/auth/merchant'
-      path: '/merchant'
+      path: '/auth/merchant'
       fullPath: '/auth/merchant'
       preLoaderRoute: typeof AuthMerchantRouteImport
-      parentRoute: typeof AuthRoute
+      parentRoute: typeof rootRouteImport
     }
     '/auth/forgot-password': {
       id: '/auth/forgot-password'
-      path: '/forgot-password'
+      path: '/auth/forgot-password'
       fullPath: '/auth/forgot-password'
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
-      parentRoute: typeof AuthRoute
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/admin': {
+      id: '/auth/admin'
+      path: '/auth/admin'
+      fullPath: '/auth/admin'
+      preLoaderRoute: typeof AuthAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/merchants': {
+      id: '/admin/merchants'
+      path: '/merchants'
+      fullPath: '/admin/merchants'
+      preLoaderRoute: typeof AdminMerchantsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/analytics': {
+      id: '/admin/analytics'
+      path: '/analytics'
+      fullPath: '/admin/analytics'
+      preLoaderRoute: typeof AdminAnalyticsRouteImport
+      parentRoute: typeof AdminRoute
     }
   }
 }
 
 interface AdminRouteChildren {
+  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
+  AdminMerchantsRoute: typeof AdminMerchantsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAnalyticsRoute: AdminAnalyticsRoute,
+  AdminMerchantsRoute: AdminMerchantsRoute,
+  AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
-
-interface AuthRouteChildren {
-  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
-  AuthMerchantRoute: typeof AuthMerchantRoute
-  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
-}
-
-const AuthRouteChildren: AuthRouteChildren = {
-  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
-  AuthMerchantRoute: AuthMerchantRoute,
-  AuthResetPasswordRoute: AuthResetPasswordRoute,
-}
-
-const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface MerchantRouteChildren {
   MerchantAnalyticsRoute: typeof MerchantAnalyticsRoute
@@ -570,7 +642,6 @@ const MerchantRouteWithChildren = MerchantRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
-  AuthRoute: AuthRouteWithChildren,
   CartRoute: CartRoute,
   LeaderboardRoute: LeaderboardRoute,
   LoyaltyRoute: LoyaltyRoute,
@@ -579,10 +650,15 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   RewardsRoute: RewardsRoute,
   StoresRoute: StoresRoute,
+  AuthAdminRoute: AuthAdminRoute,
+  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
+  AuthMerchantRoute: AuthMerchantRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
   CustomerOrderRoute: CustomerOrderRoute,
   CustomerOrdersRoute: CustomerOrdersRoute,
   OrdersIdRoute: OrdersIdRoute,
   StoresIdRoute: StoresIdRoute,
+  AuthIndexRoute: AuthIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
