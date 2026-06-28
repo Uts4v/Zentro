@@ -1,7 +1,7 @@
 // routes/auth.tsx
 import { createFileRoute, Link, Outlet, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/auth";
+import { useAuth, OAUTH_INTENT_KEY } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { Loader2, Mail, Lock, User, ArrowRight } from "lucide-react";
 
@@ -109,6 +109,12 @@ function Auth() {
 
   const handleGoogleSignIn = async () => {
     setError(null);
+    // FIX: explicitly mark this as a customer-intent OAuth flow. Without
+    // this, a stale "merchant" value left in sessionStorage from a previous
+    // attempt on /auth/merchant could leak into a customer signup here and
+    // cause AuthProvider's ensureProfileExists() to create a merchant
+    // profile for someone who never asked for one.
+    sessionStorage.setItem(OAUTH_INTENT_KEY, "customer");
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -120,6 +126,7 @@ function Auth() {
 
   const handleAppleSignIn = async () => {
     setError(null);
+    sessionStorage.setItem(OAUTH_INTENT_KEY, "customer");
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "apple",
       options: {

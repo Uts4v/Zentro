@@ -1,7 +1,7 @@
 // routes/auth.merchant.tsx
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/auth";
+import { useAuth, OAUTH_INTENT_KEY } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { Loader2, Mail, Lock, User, Store, ArrowRight } from "lucide-react";
 
@@ -28,29 +28,33 @@ function MerchantAuth() {
   const { redirect } = useSearch({ from: "/auth/merchant" });
 
   // Handle OAuth callback — Supabase redirects back here with tokens in URL hash
+  //
+  // FIX: this used to run its own independent merchant_profiles check here,
+  // racing against AuthProvider's ensureProfileExists() + merchant.tsx's own
+  // guard effect. Two separate code paths were deciding "is this a merchant"
+  // off the same SIGNED_IN event, with no coordination between them — that
+  // race is what caused merchant OAuth signups to intermittently land as
+  // customers. merchant.tsx is now the single source of truth for that
+  // decision (it waits for `loading` to settle, then checks merchantProfile).
+  // This effect's only job now is to wait for the session and hand off.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash;
     if (!hash || !hash.includes("access_token")) return;
 
     setOauthLoading(true);
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) { setOauthLoading(false); return; }
-      window.history.replaceState(null, "", window.location.pathname);
-
-      const { data: mp } = await supabase
-        .from("merchant_profiles")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      if (!mp) {
-        setError("This Google account is not registered as a merchant. Please sign up first.");
-        await supabase.auth.signOut();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
         setOauthLoading(false);
         return;
       }
-      // SPA navigate — auth state already loaded in memory, no reload needed
+      window.history.replaceState(null, "", window.location.pathname);
+
+      // Don't query merchant_profiles here — AuthProvider's
+      // ensureProfileExists() (using the intent we stashed before the
+      // redirect) and merchant.tsx's guard effect own that decision.
+      // If this account genuinely isn't a merchant, merchant.tsx will
+      // catch it on mount and bounce back here with a clear reason.
       navigate({ to: (redirect || "/merchant") as any, replace: true });
     });
   }, []);
@@ -104,6 +108,11 @@ function MerchantAuth() {
 
   const handleGoogleSignIn = async () => {
     setError(null);
+    // FIX: stash intent so AuthProvider's ensureProfileExists() knows this
+    // OAuth signup should create a merchant_profiles row, not just a
+    // customer profiles row. Without this, every Google/Apple signup
+    // defaulted to role: "customer" no matter which page initiated it.
+    sessionStorage.setItem(OAUTH_INTENT_KEY, "merchant");
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/merchant` },
@@ -113,6 +122,7 @@ function MerchantAuth() {
 
   const handleAppleSignIn = async () => {
     setError(null);
+    sessionStorage.setItem(OAUTH_INTENT_KEY, "merchant");
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "apple",
       options: { redirectTo: `${window.location.origin}/auth/merchant` },

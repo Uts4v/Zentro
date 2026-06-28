@@ -62,6 +62,31 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// ── OAuth intent key ──────────────────────────────────────────────────────────
+// Google/Apple OAuth carries no info about which page (customer vs merchant)
+// initiated the flow, since the user gets fully redirected away to the
+// provider and back. We stash intent in sessionStorage right before the
+// redirect so we can read it back once the SIGNED_IN event fires here.
+export const OAUTH_INTENT_KEY = "zentro_oauth_intent";
+
+function readOAuthIntent(): "merchant" | "customer" | null {
+  if (typeof window === "undefined") return null;
+  const v = sessionStorage.getItem(OAUTH_INTENT_KEY);
+  return v === "merchant" ? "merchant" : v === "customer" ? "customer" : null;
+}
+
+function clearOAuthIntent() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(OAUTH_INTENT_KEY);
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function ensureProfileExists(userId: string, user: User): Promise<void> {
@@ -78,15 +103,54 @@ async function ensureProfileExists(userId: string, user: User): Promise<void> {
     user.user_metadata?.name ??
     null;
 
-  await supabase.from("profiles").insert({
+  // FIX: read the intent the auth page stashed before the OAuth redirect.
+  // Previously this always hardcoded role: "customer", so a merchant
+  // signing up via Google/Apple silently became a customer with no
+  // merchant_profiles row at all.
+  const intent = readOAuthIntent();
+  const role: "customer" | "merchant" = intent === "merchant" ? "merchant" : "customer";
+
+  // TEMP DEBUG — remove once confirmed working
+  console.log("[ensureProfileExists] intent:", intent, "→ role:", role, "userId:", userId);
+
+  const profileInsert = await supabase.from("profiles").insert({
     id: userId,
     full_name: fullName,
     avatar_url: user.user_metadata?.avatar_url ?? null,
     points: 0,
     streak: 0,
     tier: "Bronze",
-    role: "customer",
+    role,
   });
+
+  // TEMP DEBUG — remove once confirmed working
+  if (profileInsert.error) {
+    console.error("[ensureProfileExists] profiles insert FAILED:", profileInsert.error);
+  } else {
+    console.log("[ensureProfileExists] profiles insert OK");
+  }
+
+  if (role === "merchant") {
+    // OAuth never collects a store name, so we seed a placeholder.
+    // Surface a "complete your store profile" prompt elsewhere if you
+    // want merchants to set a real name/slug before going live.
+    const storeName = fullName ? `${fullName}'s Store` : "New Store";
+    const merchantInsert = await supabase.from("merchant_profiles").insert({
+      user_id: userId,
+      store_name: storeName,
+      store_slug: slugify(storeName),
+      is_approved: false,
+    });
+
+    // TEMP DEBUG — remove once confirmed working
+    if (merchantInsert.error) {
+      console.error("[ensureProfileExists] merchant_profiles insert FAILED:", merchantInsert.error);
+    } else {
+      console.log("[ensureProfileExists] merchant_profiles insert OK");
+    }
+  }
+
+  clearOAuthIntent();
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────────
@@ -164,8 +228,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           s.user.app_metadata?.provider === "google" ||
           s.user.app_metadata?.provider === "apple";
 
-        // For OAuth sign-ins, make sure a profiles row exists.
-        // Email signUp() creates it explicitly; OAuth skips that path.
+        // For OAuth sign-ins, make sure a profiles row exists (and, if the
+        // intent was "merchant", a merchant_profiles row too).
+        // Email signUp() creates these explicitly; OAuth skips that path.
         // The DB trigger (handle_new_user) is the primary guard,
         // but this is a reliable client-side fallback.
         if (event === "SIGNED_IN" && isOAuth) {
@@ -244,10 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             {
               user_id: u.id,
               store_name: meta.store_name,
-              store_slug: meta.store_name
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, "-")
-                .replace(/(^-|-$)/g, ""),
+              store_slug: slugify(meta.store_name),
               is_approved: false,
             },
             { onConflict: "user_id" }

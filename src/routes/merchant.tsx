@@ -41,31 +41,39 @@ function MerchantLayout() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
- useEffect(() => {
-  if (loading) return; // auth + both profile fetches still in progress
+  // This is the single source of truth for "is this user allowed on
+  // /merchant/*". Previously, auth.merchant.tsx's OAuth callback also ran
+  // its own independent merchant_profiles check and could navigate or sign
+  // out concurrently with this effect — that race is what let a
+  // freshly-created customer-role account briefly slip past as if it were
+  // a merchant. auth.merchant.tsx no longer does that check; this effect
+  // (plus the intent-aware profile creation in lib/auth.tsx) is now the
+  // only place that decides merchant access.
+  useEffect(() => {
+    if (loading) return; // auth + both profile fetches still in progress
 
-  if (!user) {
-    navigate({ to: "/auth/merchant" as any, replace: true });
-    return;
-  }
-
-  // merchantProfile is definitively null (fetch completed, no row found)
-  // AND loading is false means both fetches are done
-  if (merchantProfile === null) {
-    supabase.auth.signOut().then(() => {
+    if (!user) {
       navigate({ to: "/auth/merchant" as any, replace: true });
-    });
-  }
-}, [user, merchantProfile, loading]);
+      return;
+    }
 
-// Show spinner while loading — covers both auth init AND profile fetches
-if (loading || !user || !merchantProfile) {
-  return (
-    <div className="flex min-h-dvh items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-    </div>
-  );
-}
+    // merchantProfile is definitively null (fetch completed, no row found)
+    // AND loading is false means both fetches are done
+    if (merchantProfile === null) {
+      supabase.auth.signOut().then(() => {
+        navigate({ to: "/auth/merchant" as any, replace: true });
+      });
+    }
+  }, [user, merchantProfile, loading]);
+
+  // Show spinner while loading — covers both auth init AND profile fetches
+  if (loading || !user || !merchantProfile) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   async function handleSignOut() {
     await signOut();

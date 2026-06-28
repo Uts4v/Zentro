@@ -1,3 +1,4 @@
+// routes/__root.tsx 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -25,7 +26,7 @@ const PUBLIC_ROUTES = [
 
 // ── Auth gate — rendered inside AuthProvider so useAuth() works ───────────────
 function AuthGate() {
-  const { user, loading } = useAuth();
+  const { user, merchantProfile, loading } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -34,24 +35,34 @@ function AuthGate() {
 
   useEffect(() => {
     if (loading) return;
-    if (user) return;
     if (isPublic) return;
 
     // Not logged in and on a protected route → send to the right login page
-    if (isMerchant) {
+    if (!user) {
+      navigate({
+        to: (isMerchant ? "/auth/merchant" : "/auth") as any,
+        search: { redirect: pathname },
+        replace: true,
+      });
+      return;
+    }
+
+    // FIX: previously this gate only checked `if (user) return;` — any
+    // logged-in session, regardless of role, was let straight through to
+    // /merchant/* before merchant.tsx's own (correct) guard effect had a
+    // chance to run. That gap was part of the race that let freshly
+    // OAuth-signed-up customer accounts briefly render merchant pages.
+    // Now the root gate itself checks role for merchant routes too, so
+    // there's no window where a non-merchant session is considered "fine"
+    // at this layer.
+    if (isMerchant && merchantProfile === null) {
       navigate({
         to: "/auth/merchant" as any,
         search: { redirect: pathname },
         replace: true,
       });
-    } else {
-      navigate({
-        to: "/auth" as any,
-        search: { redirect: pathname },
-        replace: true,
-      });
     }
-  }, [user, loading, isPublic, pathname]);
+  }, [user, merchantProfile, loading, isPublic, isMerchant, pathname]);
 
   // While auth is initialising on a protected route, show a full-screen spinner
   // so the page never flashes protected content before the redirect fires
@@ -65,6 +76,16 @@ function AuthGate() {
 
   // Auth done, not logged in, not a public route — spinner while redirect fires
   if (!loading && !user && !isPublic) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Auth done, logged in, but on a merchant route with no merchant profile —
+  // spinner while the redirect above fires, same reasoning as merchant.tsx.
+  if (!loading && user && isMerchant && merchantProfile === null) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
