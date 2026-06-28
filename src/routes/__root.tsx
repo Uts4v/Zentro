@@ -32,6 +32,17 @@ function AuthGate() {
 
   const isPublic   = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
   const isMerchant = pathname.startsWith("/merchant");
+  // /admin has its own dedicated guard in admin.tsx (checks isAdmin, redirects
+  // non-admins to "/" without revealing the route exists). The root gate
+  // only needs to handle the "not logged in at all" case for it, same as
+  // any other protected route — role-specific logic for admin lives in
+  // admin.tsx itself, not here, to avoid duplicating that check in two places.
+  const isAdminRoute = pathname.startsWith("/admin");
+
+  // A rejected merchant should be treated the same as "no merchant profile"
+  // for routing purposes — both get bounced out of /merchant/*.
+  const merchantBlocked =
+    merchantProfile === null || merchantProfile?.status === "rejected";
 
   useEffect(() => {
     if (loading) return;
@@ -54,15 +65,20 @@ function AuthGate() {
     // OAuth-signed-up customer accounts briefly render merchant pages.
     // Now the root gate itself checks role for merchant routes too, so
     // there's no window where a non-merchant session is considered "fine"
-    // at this layer.
-    if (isMerchant && merchantProfile === null) {
+    // at this layer. Pending merchants are allowed through (merchant.tsx
+    // shows its own banner); only a missing profile or "rejected" status
+    // is blocked here.
+    if (isMerchant && merchantBlocked) {
       navigate({
         to: "/auth/merchant" as any,
-        search: { redirect: pathname },
+        search: {
+          redirect: pathname,
+          rejected: merchantProfile?.status === "rejected" ? "true" : undefined,
+        },
         replace: true,
       });
     }
-  }, [user, merchantProfile, loading, isPublic, isMerchant, pathname]);
+  }, [user, merchantProfile, merchantBlocked, loading, isPublic, isMerchant, pathname]);
 
   // While auth is initialising on a protected route, show a full-screen spinner
   // so the page never flashes protected content before the redirect fires
@@ -83,9 +99,9 @@ function AuthGate() {
     );
   }
 
-  // Auth done, logged in, but on a merchant route with no merchant profile —
+  // Auth done, logged in, but on a merchant route with a blocked profile —
   // spinner while the redirect above fires, same reasoning as merchant.tsx.
-  if (!loading && user && isMerchant && merchantProfile === null) {
+  if (!loading && user && isMerchant && merchantBlocked) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

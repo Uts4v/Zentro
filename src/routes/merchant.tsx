@@ -49,6 +49,11 @@ function MerchantLayout() {
   // a merchant. auth.merchant.tsx no longer does that check; this effect
   // (plus the intent-aware profile creation in lib/auth.tsx) is now the
   // only place that decides merchant access.
+  //
+  // Approval semantics: a merchant_profiles row with status "pending" is
+  // still allowed in here (so they can set up their store/menu while
+  // waiting on review) — only "rejected" is blocked outright. A missing
+  // row entirely (merchantProfile === null) is also blocked, same as before.
   useEffect(() => {
     if (loading) return; // auth + both profile fetches still in progress
 
@@ -61,19 +66,36 @@ function MerchantLayout() {
     // AND loading is false means both fetches are done
     if (merchantProfile === null) {
       supabase.auth.signOut().then(() => {
-        navigate({ to: "/auth/merchant" as any, replace: true });
+        navigate({
+          to: "/auth/merchant" as any,
+          search: { rejected: undefined },
+          replace: true,
+        });
+      });
+      return;
+    }
+
+    if (merchantProfile.status === "rejected") {
+      supabase.auth.signOut().then(() => {
+        navigate({
+          to: "/auth/merchant" as any,
+          search: { rejected: "true" },
+          replace: true,
+        });
       });
     }
   }, [user, merchantProfile, loading]);
 
   // Show spinner while loading — covers both auth init AND profile fetches
-  if (loading || !user || !merchantProfile) {
+  if (loading || !user || !merchantProfile || merchantProfile.status === "rejected") {
     return (
       <div className="flex min-h-dvh items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  const isPending = merchantProfile.status === "pending";
 
   async function handleSignOut() {
     await signOut();
@@ -190,6 +212,14 @@ function MerchantLayout() {
             {merchantProfile.store_name.charAt(0).toUpperCase()}
           </div>
         </header>
+
+        {/* Pending approval banner */}
+        {isPending && (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-800 lg:px-8">
+            Your store is awaiting admin review. You can set things up now —
+            customers won't see your store until it's approved.
+          </div>
+        )}
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">

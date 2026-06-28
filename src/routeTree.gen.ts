@@ -18,8 +18,10 @@ import { Route as LoyaltyRouteImport } from './routes/loyalty'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MerchantIndexRouteImport } from './routes/merchant.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StoresIdRouteImport } from './routes/stores_.$id'
 import { Route as OrdersIdRouteImport } from './routes/orders.$id'
 import { Route as MerchantStoreRouteImport } from './routes/merchant.store'
@@ -78,6 +80,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -87,6 +94,11 @@ const MerchantIndexRoute = MerchantIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => MerchantRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
 } as any)
 const StoresIdRoute = StoresIdRouteImport.update({
   id: '/stores_/$id',
@@ -151,6 +163,7 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/cart': typeof CartRoute
   '/leaderboard': typeof LeaderboardRoute
@@ -172,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/merchant/store': typeof MerchantStoreRoute
   '/orders/$id': typeof OrdersIdRoute
   '/stores/$id': typeof StoresIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/merchant/': typeof MerchantIndexRoute
 }
 export interface FileRoutesByTo {
@@ -196,11 +210,13 @@ export interface FileRoutesByTo {
   '/merchant/store': typeof MerchantStoreRoute
   '/orders/$id': typeof OrdersIdRoute
   '/stores/$id': typeof StoresIdRoute
+  '/admin': typeof AdminIndexRoute
   '/merchant': typeof MerchantIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/cart': typeof CartRoute
   '/leaderboard': typeof LeaderboardRoute
@@ -222,12 +238,14 @@ export interface FileRoutesById {
   '/merchant/store': typeof MerchantStoreRoute
   '/orders/$id': typeof OrdersIdRoute
   '/stores_/$id': typeof StoresIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/merchant/': typeof MerchantIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/auth'
     | '/cart'
     | '/leaderboard'
@@ -249,6 +267,7 @@ export interface FileRouteTypes {
     | '/merchant/store'
     | '/orders/$id'
     | '/stores/$id'
+    | '/admin/'
     | '/merchant/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -273,10 +292,12 @@ export interface FileRouteTypes {
     | '/merchant/store'
     | '/orders/$id'
     | '/stores/$id'
+    | '/admin'
     | '/merchant'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/auth'
     | '/cart'
     | '/leaderboard'
@@ -298,11 +319,13 @@ export interface FileRouteTypes {
     | '/merchant/store'
     | '/orders/$id'
     | '/stores_/$id'
+    | '/admin/'
     | '/merchant/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   CartRoute: typeof CartRoute
   LeaderboardRoute: typeof LeaderboardRoute
@@ -383,6 +406,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -396,6 +426,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/merchant/'
       preLoaderRoute: typeof MerchantIndexRouteImport
       parentRoute: typeof MerchantRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/stores_/$id': {
       id: '/stores_/$id'
@@ -484,6 +521,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 interface AuthRouteChildren {
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthMerchantRoute: typeof AuthMerchantRoute
@@ -522,6 +569,7 @@ const MerchantRouteWithChildren = MerchantRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   CartRoute: CartRoute,
   LeaderboardRoute: LeaderboardRoute,

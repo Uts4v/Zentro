@@ -1,4 +1,3 @@
-//lib/api.ts — Supabase only, no Django backend
 import { supabase } from "@/lib/supabase";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -55,15 +54,14 @@ export interface Order {
   merchant_profiles?: { store_name: string };
 }
 
-// Update the interface
 export interface CreateOrderPayload {
   merchant_id: string;
-  items: { 
-    menu_item_id: string; 
-    quantity: number; 
-    name: string; 
+  items: {
+    menu_item_id: string;
+    quantity: number;
+    name: string;
     price: number;
-    points_per_item: number; // ← add this
+    points_per_item: number;
   }[];
   notes?: string;
 }
@@ -167,9 +165,23 @@ export interface LoyaltyRules {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function getCurrentUserId(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-  return user.id;
+  // Primary: hit the Auth server and validate the JWT.
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (user) return user.id;
+
+  // JWT expired or stale — attempt a silent token refresh.
+  if (error?.status === 403 || error?.status === 401) {
+    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+    if (refreshed?.user) return refreshed.user.id;
+  }
+
+  // Last resort: read from localStorage without hitting the Auth server.
+  // Works offline or when the Auth server is temporarily rejecting tokens,
+  // but the token may be expired — only use as a fallback.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user) return session.user.id;
+
+  throw new Error("Not authenticated");
 }
 
 async function getMerchantProfile(userId: string): Promise<MerchantProfile> {
@@ -286,9 +298,9 @@ export const orderApi = {
     const userId = await getCurrentUserId();
     const total = payload.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const pointsEarned = payload.items.reduce(
-  (sum, i) => sum + (i.points_per_item ?? 0) * i.quantity,
-  0
-);
+      (sum, i) => sum + (i.points_per_item ?? 0) * i.quantity,
+      0
+    );
 
     const { data: order, error: orderErr } = await supabase
       .from("orders")
@@ -327,27 +339,26 @@ export const orderApi = {
       .single();
     if (error) throw new Error(error.message);
 
-// Change: if (status === "completed") {
-// To:
-if (status === "confirmed") {
-  if (data.points_earned > 0) {
-    await (supabase.rpc as any)("increment_points", {
-      user_id: data.customer_id,
-      pts: data.points_earned,
-    }).throwOnError();
-  }
+    if (status === "confirmed") {
+      if (data.points_earned > 0) {
+        await (supabase.rpc as any)("increment_points", {
+          user_id: data.customer_id,
+          pts: data.points_earned,
+        }).throwOnError();
+      }
 
-  await (supabase.rpc as any)("increment_punch_card", {
-    p_customer_id: data.customer_id,
-    p_merchant_id: data.merchant_id,
-  }).throwOnError();
+      await (supabase.rpc as any)("increment_punch_card", {
+        p_customer_id: data.customer_id,
+        p_merchant_id: data.merchant_id,
+      }).throwOnError();
 
-  await (supabase.rpc as any)("try_increment_streak", {
-    p_customer_id: data.customer_id,
-    p_merchant_id: data.merchant_id,
-    p_order_total: parseFloat(data.total_amount),
-  }).throwOnError();
-}
+      await (supabase.rpc as any)("try_increment_streak", {
+        p_customer_id: data.customer_id,
+        p_merchant_id: data.merchant_id,
+        p_order_total: parseFloat(data.total_amount),
+      }).throwOnError();
+    }
+
     return data as Order;
   },
 
@@ -382,23 +393,25 @@ export const merchantApi = {
   },
 
   list: async (): Promise<MerchantProfile[]> => {
-    const { data, error } = await supabase
-      .from("merchant_profiles")
-      .select("*")
-      .order("store_name");
-    if (error) throw new Error(error.message);
-    return (data ?? []) as MerchantProfile[];
-  },
+  const { data, error } = await supabase
+    .from("merchant_profiles")
+    .select("*")
+    .eq("status", "approved")  // use text status column, not boolean is_approved
+    .order("store_name");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MerchantProfile[];
+},
 
   get: async (id: string): Promise<MerchantProfile> => {
-    const { data, error } = await supabase
-      .from("merchant_profiles")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error) throw new Error(error.message);
-    return data as MerchantProfile;
-  },
+  const { data, error } = await supabase
+    .from("merchant_profiles")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle(); // was .single()
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Merchant not found");
+  return data as MerchantProfile;
+},
 
   update: async (input: Partial<MerchantProfile>): Promise<MerchantProfile> => {
     const userId = await getCurrentUserId();
@@ -419,52 +432,48 @@ export const merchantApi = {
 export const customerApi = {
   profile: async (): Promise<CustomerProfile> => {
     const userId = await getCurrentUserId();
- 
-    // Fetch profile — columns: id, full_name, points, streak, tier
-// customerApi.profile — update the select and return:
-const { data, error } = await supabase
-  .from("profiles")
-  .select("id, full_name, points, streak, tier, last_streak_at, streak_free_earned")
-  .eq("id", userId)
-  .maybeSingle();
 
-if (error || !data) throw new Error(error?.message ?? "Profile not found");
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, points, streak, tier, last_streak_at, streak_free_earned")
+      .eq("id", userId)
+      .maybeSingle();
 
-const { count } = await supabase
-  .from("orders")
-  .select("id", { count: "exact", head: true })
-  .eq("customer_id", userId)
-  .eq("status", "completed");
+    if (error || !data) throw new Error(error?.message ?? "Profile not found");
 
-return {
-  id: data.id,
-  full_name: data.full_name,
-  loyalty_points: data.points ?? 0,
-  streak_days: data.streak ?? 0,          // maps "streak" column → streak_days
-  tier: data.tier ?? "Bronze",
-  total_orders: count ?? 0,
-  last_streak_at: (data as any).last_streak_at ?? null,
-  streak_free_earned: (data as any).streak_free_earned ?? false,
-};
+    const { count } = await supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", userId)
+      .eq("status", "completed");
+
+    return {
+      id: data.id,
+      full_name: data.full_name,
+      loyalty_points: data.points ?? 0,
+      streak_days: data.streak ?? 0,
+      tier: data.tier ?? "Bronze",
+      total_orders: count ?? 0,
+      last_streak_at: (data as any).last_streak_at ?? null,
+      streak_free_earned: (data as any).streak_free_earned ?? false,
+    };
   },
 
-   getPunchCard: async (merchantId: string): Promise<PunchCard | null> => {
+  getPunchCard: async (merchantId: string): Promise<PunchCard | null> => {
     const userId = await getCurrentUserId();
- 
+
     const { data, error } = await supabase
       .from("punch_cards")
       .select("*")
       .eq("customer_id", userId)
       .eq("merchant_id", merchantId)
       .maybeSingle();
- 
+
     if (error) throw new Error(error.message);
- 
-    if (!data) return null; // No orders placed at this merchant yet — caller shows 0/5
- 
+    if (!data) return null;
+
     return {
       ...data,
-      // Normalise nullable columns so UI never gets undefined
       punch_count: data.punch_count ?? 0,
       lifetime_punches: data.lifetime_punches ?? 0,
       punches_to_free: data.punches_to_free ?? 5,
@@ -586,13 +595,11 @@ export const rewardApi = {
     if (pErr || !profile) throw new Error("Profile not found");
     if (profile.points < reward.points_cost) throw new Error("Not enough points");
 
-    // Deduct points via security definer function
     await (supabase.rpc as any)("deduct_points", {
       target_user_id: userId,
       amount: reward.points_cost,
     }).throwOnError();
 
-    // Create redemption with 6-char code, expires in 10 min
     const code = Math.random().toString(36).slice(2, 8).toUpperCase();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 

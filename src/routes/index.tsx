@@ -17,7 +17,6 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-// ── Menu item card with image support ────────────────────────────────────────
 function MenuItemCard({
   item,
   onAdd,
@@ -33,10 +32,9 @@ function MenuItemCard({
 
   return (
     <article className="glass group relative flex flex-col rounded-3xl overflow-hidden">
-      {/* Image or emoji thumbnail */}
       {hasImage ? (
         <img
-          src={item.image_url}
+          src={item.image_url!}
           alt={item.name}
           className="h-32 w-full object-cover"
           onError={() => setImgError(true)}
@@ -47,7 +45,6 @@ function MenuItemCard({
           {item.emoji || "☕"}
         </div>
       )}
-
       <div className="flex flex-1 flex-col p-4">
         <h3 className="text-sm font-semibold text-ink">{item.name}</h3>
         <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{item.description}</p>
@@ -79,25 +76,70 @@ function Index() {
   const [cat, setCat] = useState<string>("All");
 
   useEffect(() => {
-    if (!selectedMerchantId) {
-      setLoading(false);
-      return;
+    async function init() {
+      setLoading(true);
+
+      try {
+        // Always fetch the merchant list first — this is cheap and confirms
+        // the stored selectedMerchantId is still valid (not stale from
+        // a previous session with a different user).
+        const list = await merchantApi.list();
+        console.log("[index] merchant list:", list);
+
+        // Filter to open + approved merchants
+        const available = list.filter((m) => m.is_open);
+        console.log("[index] available merchants:", available);
+
+        // Determine which merchant to use
+        let merchantId = selectedMerchantId;
+
+        // Validate that the stored ID still exists in the list
+        if (merchantId) {
+          const stillValid = available.find((m) => m.id === merchantId);
+          if (!stillValid) {
+            console.warn("[index] stored merchantId no longer valid, clearing");
+            setSelectedMerchant(null);
+            merchantId = null;
+          }
+        }
+
+        // Auto-select if only one available and none selected
+        if (!merchantId && available.length === 1) {
+          merchantId = available[0].id;
+          setSelectedMerchant(merchantId);
+          console.log("[index] auto-selected merchant:", merchantId);
+        }
+
+        // If still no merchant (multiple available, none selected) — stop here
+        if (!merchantId) {
+          setLoading(false);
+          return;
+        }
+
+        // Load menu + profile in parallel
+        const merchant = available.find((m) => m.id === merchantId);
+        if (merchant) setMerchantName(merchant.store_name);
+
+        const [items, profile] = await Promise.all([
+          menuApi.forMerchant(merchantId).catch(() => [] as MenuItem[]),
+          customerApi.profile().catch(() => null),
+        ]);
+
+        setMenuItems(items);
+        if (profile) {
+          setPoints(profile.loyalty_points);
+          setStreak(profile.streak_days);
+        }
+      } catch (e) {
+        console.error("[index] init error:", e);
+      } finally {
+        setLoading(false);
+      }
     }
-    setLoading(true);
-    Promise.all([
-      menuApi.forMerchant(selectedMerchantId)
-        .then((items) => setMenuItems(items))
-        .catch(() => setMenuItems([])),
-      merchantApi.get(selectedMerchantId)
-        .then((m) => setMerchantName(m.store_name))
-        .catch(() => {}),
-      customerApi.profile()
-        .then((p) => {
-          setPoints(p.loyalty_points);
-          setStreak(p.streak_days);
-        })
-        .catch(() => {}),
-    ]).finally(() => setLoading(false));
+
+    init();
+    // Only re-run when selectedMerchantId changes — not on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMerchantId]);
 
   const cats = ["All", ...Array.from(new Set(menuItems.map((m) => m.category).filter(Boolean)))];
@@ -117,7 +159,9 @@ function Index() {
           <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
             {selectedMerchantId ? "Now open" : "Select a store to start"}
           </p>
-          <h1 className="font-display mt-2 text-[44px] leading-[1] text-ink">{merchantName}</h1>
+          <h1 className="font-display mt-2 text-[44px] leading-[1] text-ink">
+            {merchantName}
+          </h1>
           {selectedMerchantId && (
             <div className="mt-5 flex items-center gap-2">
               <span className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs">
@@ -128,9 +172,12 @@ function Index() {
               </span>
             </div>
           )}
-          {!selectedMerchantId && (
+          {!selectedMerchantId && !loading && (
             <p className="mt-2 text-sm text-muted-foreground">
-              <Link to="/stores" className="text-ember underline">Browse stores</Link> to start ordering.
+              <Link to="/stores" className="text-ember underline">
+                Browse stores
+              </Link>{" "}
+              to start ordering.
             </p>
           )}
         </div>
@@ -155,17 +202,21 @@ function Index() {
         </div>
       )}
 
-      {/* Menu */}
+      {/* Menu grid */}
       <section className="mt-3 grid grid-cols-2 gap-3 px-5 pb-32">
-        {loading && selectedMerchantId && (
-          <p className="col-span-2 text-center text-sm text-muted-foreground">Loading menu…</p>
+        {loading && (
+          <p className="col-span-2 text-center text-sm text-muted-foreground">
+            Loading…
+          </p>
         )}
-        {!loading && menuItems.length === 0 && selectedMerchantId && (
-          <p className="col-span-2 text-center text-sm text-muted-foreground">No menu items available.</p>
-        )}
-        {!selectedMerchantId && (
+        {!loading && !selectedMerchantId && (
           <p className="col-span-2 text-center text-sm text-muted-foreground">
             Select a store to see the menu.
+          </p>
+        )}
+        {!loading && selectedMerchantId && menuItems.length === 0 && (
+          <p className="col-span-2 text-center text-sm text-muted-foreground">
+            No menu items available.
           </p>
         )}
         {items.map((m) => (
@@ -186,7 +237,8 @@ function Index() {
           style={{ marginLeft: "auto", marginRight: "auto", width: "calc(100% - 32px)" }}
         >
           <span className="flex items-center gap-2 text-sm font-medium">
-            <ShoppingBag className="h-4 w-4" /> {count} {count === 1 ? "item" : "items"}
+            <ShoppingBag className="h-4 w-4" /> {count}{" "}
+            {count === 1 ? "item" : "items"}
           </span>
           <span className="font-display text-lg">NPR {total.toLocaleString()} →</span>
         </Link>

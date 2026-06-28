@@ -8,6 +8,7 @@ import { Loader2, Mail, Lock, User, Store, ArrowRight } from "lucide-react";
 export const Route = createFileRoute("/auth/merchant")({
   validateSearch: (search: Record<string, unknown>) => ({
     redirect: (search.redirect as string) || undefined,
+    rejected: (search.rejected as string) || undefined,
   }),
   head: () => ({ meta: [{ title: "Merchant Sign In · Zentro" }] }),
   component: MerchantAuth,
@@ -25,7 +26,16 @@ function MerchantAuth() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const { redirect } = useSearch({ from: "/auth/merchant" });
+  const { redirect, rejected } = useSearch({ from: "/auth/merchant" });
+
+  // Surface the reason if merchant.tsx bounced a rejected account back here.
+  useEffect(() => {
+    if (rejected === "true") {
+      setError(
+        "Your store application was not approved. Contact support if you think this is a mistake."
+      );
+    }
+  }, [rejected]);
 
   // Handle OAuth callback — Supabase redirects back here with tokens in URL hash
   //
@@ -80,18 +90,25 @@ function MerchantAuth() {
       const { error: err } = await signIn(email, password);
       if (err) { setError(err); return; }
 
-      // Verify merchant profile exists
+      // Verify merchant profile exists and isn't rejected.
+      // Pending is allowed through — merchant.tsx shows a banner for that.
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setError("Sign in failed. Please try again."); return; }
 
       const { data: mp } = await supabase
         .from("merchant_profiles")
-        .select("id")
+        .select("id, status")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
       if (!mp) {
         setError("This account is not a merchant account. Use customer sign in instead.");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (mp.status === "rejected") {
+        setError("Your store application was not approved. Contact support if you think this is a mistake.");
         await supabase.auth.signOut();
         return;
       }

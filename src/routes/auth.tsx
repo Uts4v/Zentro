@@ -5,7 +5,6 @@ import { useAuth, OAUTH_INTENT_KEY } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { Loader2, Mail, Lock, User, ArrowRight } from "lucide-react";
 
-// ── Route definition — MUST be exported at top level ─────────────────────────
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>) => ({
     redirect: (search.redirect as string) || undefined,
@@ -13,8 +12,6 @@ export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Welcome · Zentro" }] }),
   component: Auth,
 });
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 function Auth() {
   const [mode, setMode]         = useState<"signin" | "signup">("signin");
@@ -76,7 +73,7 @@ function Auth() {
         if (err) {
           setError(err);
         } else {
-          setSuccess("Account created! Check your email to confirm, then sign in.");
+          setSuccess("Account created! Sign in to continue.");
           setMode("signin");
         }
         return;
@@ -88,20 +85,11 @@ function Auth() {
         return;
       }
 
-      // Wait for SIGNED_IN before navigating so requireAuth finds the session
-      await new Promise<void>((resolve) => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (event) => {
-            if (event === "SIGNED_IN") {
-              subscription.unsubscribe();
-              resolve();
-            }
-          }
-        );
-        setTimeout(resolve, 2000);
-      });
-
+      // Wait briefly for onAuthStateChange to fire and start profile fetches,
+      // then navigate — the route's auth guard handles the loading state.
+      await new Promise((r) => setTimeout(r, 300));
       navigate({ to: (redirect || "/") as any, replace: true });
+
     } finally {
       setBusy(false);
     }
@@ -109,11 +97,6 @@ function Auth() {
 
   const handleGoogleSignIn = async () => {
     setError(null);
-    // FIX: explicitly mark this as a customer-intent OAuth flow. Without
-    // this, a stale "merchant" value left in sessionStorage from a previous
-    // attempt on /auth/merchant could leak into a customer signup here and
-    // cause AuthProvider's ensureProfileExists() to create a merchant
-    // profile for someone who never asked for one.
     sessionStorage.setItem(OAUTH_INTENT_KEY, "customer");
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",

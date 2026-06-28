@@ -17,8 +17,10 @@ type Profile = {
   points: number;
   streak: number;
   tier: string;
-  role?: "customer" | "merchant";
+  role?: "customer" | "merchant" | "admin";
 };
+
+type MerchantStatus = "pending" | "approved" | "rejected";
 
 type MerchantProfile = {
   id: string;
@@ -31,6 +33,7 @@ type MerchantProfile = {
   logo_url: string | null;
   banner_url: string | null;
   is_approved: boolean;
+  status: MerchantStatus;
   created_at: string;
 };
 
@@ -45,6 +48,7 @@ type AuthContextType = {
   profile: Profile | null;
   merchantProfile: MerchantProfile | null;
   loading: boolean;
+  isAdmin: boolean;
   signUp: (
     email: string,
     password: string,
@@ -62,11 +66,6 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// ── OAuth intent key ──────────────────────────────────────────────────────────
-// Google/Apple OAuth carries no info about which page (customer vs merchant)
-// initiated the flow, since the user gets fully redirected away to the
-// provider and back. We stash intent in sessionStorage right before the
-// redirect so we can read it back once the SIGNED_IN event fires here.
 export const OAUTH_INTENT_KEY = "zentro_oauth_intent";
 
 function readOAuthIntent(): "merchant" | "customer" | null {
@@ -90,63 +89,74 @@ function slugify(value: string): string {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function ensureProfileExists(userId: string, user: User): Promise<void> {
+  // Verify the session is actually valid before touching the DB.
+  // On tab refocus, onAuthStateChange fires INITIAL_SESSION with a cached
+  // user object before the token is refreshed — the auth.users row is fine
+  // but getUser() will 403 until the refresh completes. Skip the upsert
+  // entirely if we can't confirm the user is real right now; the next
+  // TOKEN_REFRESHED event will re-run this with a valid JWT.
+  const { data: { user: verified }, error: verifyErr } = await supabase.auth.getUser();
+  if (verifyErr || !verified || verified.id !== userId) {
+    console.warn(
+      "[ensureProfileExists] skipping — user not verified yet",
+      verifyErr?.message
+    );
+    return;
+  }
+
   const { data: existing } = await supabase
     .from("profiles")
     .select("id")
     .eq("id", userId)
     .maybeSingle();
 
-  if (existing) return; // already exists, nothing to do
+  if (existing) {
+    clearOAuthIntent();
+    return;
+  }
 
   const fullName =
     user.user_metadata?.full_name ??
     user.user_metadata?.name ??
     null;
 
-  // FIX: read the intent the auth page stashed before the OAuth redirect.
-  // Previously this always hardcoded role: "customer", so a merchant
-  // signing up via Google/Apple silently became a customer with no
-  // merchant_profiles row at all.
   const intent = readOAuthIntent();
   const role: "customer" | "merchant" = intent === "merchant" ? "merchant" : "customer";
 
-  // TEMP DEBUG — remove once confirmed working
-  console.log("[ensureProfileExists] intent:", intent, "→ role:", role, "userId:", userId);
+  const profileUpsert = await supabase.from("profiles").upsert(
+    {
+      id: userId,
+      full_name: fullName,
+      avatar_url: user.user_metadata?.avatar_url ?? null,
+      points: 0,
+      streak: 0,
+      tier: "Bronze",
+      role,
+    },
+    { onConflict: "id" }
+  );
 
-  const profileInsert = await supabase.from("profiles").insert({
-    id: userId,
-    full_name: fullName,
-    avatar_url: user.user_metadata?.avatar_url ?? null,
-    points: 0,
-    streak: 0,
-    tier: "Bronze",
-    role,
-  });
-
-  // TEMP DEBUG — remove once confirmed working
-  if (profileInsert.error) {
-    console.error("[ensureProfileExists] profiles insert FAILED:", profileInsert.error);
-  } else {
-    console.log("[ensureProfileExists] profiles insert OK");
+  if (profileUpsert.error) {
+    console.error("[ensureProfileExists] profiles upsert failed:", profileUpsert.error);
   }
 
   if (role === "merchant") {
-    // OAuth never collects a store name, so we seed a placeholder.
-    // Surface a "complete your store profile" prompt elsewhere if you
-    // want merchants to set a real name/slug before going live.
     const storeName = fullName ? `${fullName}'s Store` : "New Store";
-    const merchantInsert = await supabase.from("merchant_profiles").insert({
-      user_id: userId,
-      store_name: storeName,
-      store_slug: slugify(storeName),
-      is_approved: false,
-    });
+    const merchantUpsert = await supabase.from("merchant_profiles").upsert(
+      {
+        user_id: userId,
+        store_name: storeName,
+        store_slug: slugify(storeName),
+        status: "pending",
+      },
+      { onConflict: "user_id" }
+    );
 
-    // TEMP DEBUG — remove once confirmed working
-    if (merchantInsert.error) {
-      console.error("[ensureProfileExists] merchant_profiles insert FAILED:", merchantInsert.error);
-    } else {
-      console.log("[ensureProfileExists] merchant_profiles insert OK");
+    if (merchantUpsert.error) {
+      console.error(
+        "[ensureProfileExists] merchant_profiles upsert failed:",
+        merchantUpsert.error
+      );
     }
   }
 
@@ -162,8 +172,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [merchantProfile, setMerchantProfile] = useState<MerchantProfile | null>(null);
   const [loading, setLoading]                 = useState(true);
 
-  // Counts how many parallel fetches are in flight.
-  // loading stays true until all of them settle.
   const pendingFetches = useRef(0);
 
   // ── Profile fetch ───────────────────────────────────────────────────────────
@@ -175,8 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select("*")
         .eq("id", userId)
         .maybeSingle();
-      // Keep null if row genuinely doesn't exist yet —
-      // don't fabricate a fake "guest" object
       setProfile((data as Profile) ?? null);
     } catch {
       setProfile(null);
@@ -184,8 +190,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Merchant profile fetch ──────────────────────────────────────────────────
-  // Always query by user_id — never trust user_metadata.role,
-  // which may be missing for OAuth or older accounts.
 
   const fetchMerchantProfile = useCallback(async (userId: string) => {
     try {
@@ -211,9 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, fetchMerchantProfile]);
 
   // ── Core auth effect ────────────────────────────────────────────────────────
-  // onAuthStateChange is the single source of truth.
-  // INITIAL_SESSION fires on every page load after localStorage is read,
-  // so we never need a separate getSession() call.
 
   useEffect(() => {
     const {
@@ -224,20 +225,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (s?.user) {
         const userId = s.user.id;
-        const isOAuth =
-          s.user.app_metadata?.provider === "google" ||
-          s.user.app_metadata?.provider === "apple";
 
-        // For OAuth sign-ins, make sure a profiles row exists (and, if the
-        // intent was "merchant", a merchant_profiles row too).
-        // Email signUp() creates these explicitly; OAuth skips that path.
-        // The DB trigger (handle_new_user) is the primary guard,
-        // but this is a reliable client-side fallback.
-        if (event === "SIGNED_IN" && isOAuth) {
+        // Only run ensureProfileExists on real auth events, NOT on
+        // INITIAL_SESSION (tab refocus). INITIAL_SESSION fires before the
+        // token refresh completes, so getUser() inside ensureProfileExists
+        // will 403 and trigger a FK violation. TOKEN_REFRESHED fires once
+        // the new JWT is ready and is safe to use.
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           await ensureProfileExists(userId, s.user);
         }
 
-        // Fire both fetches in parallel; keep loading=true until both finish
         pendingFetches.current = 2;
 
         fetchProfile(userId).finally(() => {
@@ -250,7 +247,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (pendingFetches.current === 0) setLoading(false);
         });
       } else {
-        // Signed out or no session
         setProfile(null);
         setMerchantProfile(null);
         setLoading(false);
@@ -285,12 +281,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) return { error: error.message };
 
-      // Create DB rows immediately — don't wait for the email confirm redirect
+      // Use getSession() (reads from localStorage + validates) rather than
+      // getUser() (hits Auth server which may 403 if JWT hasn't propagated).
+      // onAuthStateChange will also fire SIGNED_IN and handle profile
+      // creation via ensureProfileExists, so this is a best-effort early upsert.
       const {
-        data: { user: u },
-      } = await supabase.auth.getUser();
+        data: { session: newSession },
+      } = await supabase.auth.getSession();
 
-      if (u) {
+      if (newSession?.user) {
+        const u = newSession.user;
         await supabase.from("profiles").upsert(
           {
             id: u.id,
@@ -310,7 +310,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               user_id: u.id,
               store_name: meta.store_name,
               store_slug: slugify(meta.store_name),
-              is_approved: false,
+              status: "pending",
             },
             { onConflict: "user_id" }
           );
@@ -351,6 +351,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Context value ───────────────────────────────────────────────────────────
 
+  const isAdmin = profile?.role === "admin";
+
   return (
     <AuthContext.Provider
       value={{
@@ -359,6 +361,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         merchantProfile,
         loading,
+        isAdmin,
         signUp,
         signIn,
         signOut,
