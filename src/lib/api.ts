@@ -391,12 +391,12 @@ export const merchantApi = {
     const userId = await getCurrentUserId();
     return getMerchantProfile(userId);
   },
-
   list: async (): Promise<MerchantProfile[]> => {
   const { data, error } = await supabase
     .from("merchant_profiles")
     .select("*")
-    .eq("status", "approved")  // use text status column, not boolean is_approved
+    .eq("is_approved", true)
+    .eq("is_open", true)
     .order("store_name");
   if (error) throw new Error(error.message);
   return (data ?? []) as MerchantProfile[];

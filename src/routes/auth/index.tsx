@@ -1,4 +1,3 @@
-// routes/auth.tsx
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth, OAUTH_INTENT_KEY } from "@/lib/auth";
@@ -24,7 +23,7 @@ function Auth() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const { signIn, signUp }      = useAuth();
   const navigate                = useNavigate();
-  const { redirect } = useSearch({ from: "/auth/" });
+  const { redirect }            = useSearch({ from: "/auth/" });
 
   // Handle OAuth callback
   useEffect(() => {
@@ -69,7 +68,8 @@ function Auth() {
 
     try {
       if (mode === "signup") {
-        const { error: err } = await signUp(email, password, name);
+        // Sign up always creates a customer account from this page
+        const { error: err } = await signUp(email, password, name, { role: "customer" });
         if (err) {
           setError(err);
         } else {
@@ -79,14 +79,36 @@ function Auth() {
         return;
       }
 
+      // Sign in — check if this is actually a merchant account and
+      // redirect them to the merchant auth page instead
       const { error: err } = await signIn(email, password);
       if (err) {
         setError(err);
         return;
       }
 
-      // Wait briefly for onAuthStateChange to fire and start profile fetches,
-      // then navigate — the route's auth guard handles the loading state.
+      // Check if signed-in user is a merchant — if so, sign them out
+      // and redirect to the merchant auth page
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: mp } = await supabase
+          .from("merchant_profiles")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+
+        if (mp) {
+          // This is a merchant — sign out and send to merchant login
+          await supabase.auth.signOut();
+          navigate({
+            to: "/auth/merchant" as any,
+            search: { redirect: redirect || "/merchant" },
+            replace: true,
+          });
+          return;
+        }
+      }
+
       await new Promise((r) => setTimeout(r, 300));
       navigate({ to: (redirect || "/") as any, replace: true });
 
@@ -273,43 +295,23 @@ function Auth() {
   );
 }
 
-// ── Field component ───────────────────────────────────────────────────────────
-
 function Field({
-  label,
-  placeholder,
-  type = "text",
-  icon,
-  value,
-  onChange,
+  label, placeholder, type = "text", icon, value, onChange,
 }: {
-  label: string;
-  placeholder: string;
-  type?: string;
-  icon?: React.ReactNode;
-  value: string;
-  onChange: (v: string) => void;
+  label: string; placeholder: string; type?: string;
+  icon?: React.ReactNode; value: string; onChange: (v: string) => void;
 }) {
   return (
     <label className="block">
-      <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </span>
+      <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
       <div className="relative mt-1.5">
         {icon && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-            {icon}
-          </span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</span>
         )}
         <input
-          type={type}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          required
-          className={`h-14 w-full rounded-2xl bg-mist text-sm text-ink outline-none transition-all placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40 ${
-            icon ? "pl-11" : "px-4"
-          } pr-4`}
+          type={type} placeholder={placeholder} value={value}
+          onChange={(e) => onChange(e.target.value)} required
+          className={`h-14 w-full rounded-2xl bg-mist text-sm text-ink outline-none transition-all placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40 ${icon ? "pl-11" : "px-4"} pr-4`}
         />
       </div>
     </label>

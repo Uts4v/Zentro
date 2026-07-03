@@ -1,4 +1,3 @@
-// routes/auth.merchant.tsx
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth, OAUTH_INTENT_KEY } from "@/lib/auth";
@@ -8,84 +7,66 @@ import { Loader2, Mail, Lock, User, Store, ArrowRight } from "lucide-react";
 export const Route = createFileRoute("/auth/merchant")({
   validateSearch: (search: Record<string, unknown>) => ({
     redirect: (search.redirect as string) || undefined,
-    rejected: (search.rejected as string) || undefined,
   }),
   head: () => ({ meta: [{ title: "Merchant Sign In · Zentro" }] }),
   component: MerchantAuth,
 });
 
 function MerchantAuth() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
+  const [mode, setMode]         = useState<"signin" | "signup">("signin");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [name, setName]         = useState("");
   const [storeName, setStoreName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [success, setSuccess]   = useState<string | null>(null);
+  const [busy, setBusy]         = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
-  const navigate = useNavigate();
-  const { redirect, rejected } = useSearch({ from: "/auth/merchant" });
+  const { signIn, signUp }      = useAuth();
+  const navigate                = useNavigate();
+  const { redirect }            = useSearch({ from: "/auth/merchant" });
 
-  // Surface the reason if merchant.tsx bounced a rejected account back here.
-  // Replace this block in auth.merchant.tsx:
-useEffect(() => {
-  if (typeof window === "undefined") return;
-  const hash = window.location.hash;
-  if (!hash || !hash.includes("access_token")) return;
+  // Handle OAuth callback redirect back to this page
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash;
+    if (!hash || !hash.includes("access_token")) return;
 
-  setOauthLoading(true);
-  supabase.auth.getSession().then(({ data: { session } }) => {  // ← RACE: token may not be ready
-    if (!session) {
-      setOauthLoading(false);
-      return;
-    }
-    window.history.replaceState(null, "", window.location.pathname);
-    navigate({ to: (redirect || "/merchant") as any, replace: true });
-  });
-}, []);
+    setOauthLoading(true);
 
-// With this:
-useEffect(() => {
-  if (typeof window === "undefined") return;
-  const hash = window.location.hash;
-  if (!hash || !hash.includes("access_token")) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "SIGNED_IN" && session) {
+          subscription.unsubscribe();
+          window.history.replaceState(null, "", window.location.pathname);
+          navigate({ to: (redirect || "/merchant") as any, replace: true });
+        }
+      }
+    );
 
-  setOauthLoading(true);
-
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    (event, session) => {
-      if (event === "SIGNED_IN" && session) {
+    const fallback = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
         subscription.unsubscribe();
         window.history.replaceState(null, "", window.location.pathname);
         navigate({ to: (redirect || "/merchant") as any, replace: true });
+      } else {
+        setOauthLoading(false);
       }
-    }
-  );
+    }, 3000);
 
-  // Fallback in case the event already fired
-  const fallback = setTimeout(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
+    return () => {
+      clearTimeout(fallback);
       subscription.unsubscribe();
-      window.history.replaceState(null, "", window.location.pathname);
-      navigate({ to: (redirect || "/merchant") as any, replace: true });
-    } else {
-      setOauthLoading(false);
-    }
-  }, 3000);
+    };
+  }, []);
 
-  return () => {
-    clearTimeout(fallback);
-    subscription.unsubscribe();
-  };
-}, []);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
     setBusy(true);
+
     try {
       if (mode === "signup") {
         const { error: err } = await signUp(email, password, name, {
@@ -93,7 +74,7 @@ useEffect(() => {
           store_name: storeName,
         });
         if (err) { setError(err); return; }
-        setSuccess("Account created! Check your email to confirm, then sign in.");
+        setSuccess("Account created! Sign in to continue.");
         setMode("signin");
         return;
       }
@@ -102,8 +83,7 @@ useEffect(() => {
       const { error: err } = await signIn(email, password);
       if (err) { setError(err); return; }
 
-      // Verify merchant profile exists and isn't rejected.
-      // Pending is allowed through — merchant.tsx shows a banner for that.
+      // Verify this is actually a merchant account
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setError("Sign in failed. Please try again."); return; }
 
@@ -114,7 +94,7 @@ useEffect(() => {
         .maybeSingle();
 
       if (!mp) {
-        setError("This account is not a merchant account. Use customer sign in instead.");
+        setError("No merchant account found. Use customer sign in instead.");
         await supabase.auth.signOut();
         return;
       }
@@ -125,11 +105,10 @@ useEffect(() => {
         return;
       }
 
-      // KEY FIX: use navigate() not window.location.href
-      // window.location.href causes a full page reload which clears in-memory auth state,
-      // so merchantProfile is null when the layout mounts and it redirects back here.
-      // navigate() keeps the SPA alive so useAuth() already has the session loaded.
+      // Wait briefly for AuthProvider to finish loading merchantProfile
+      await new Promise((r) => setTimeout(r, 300));
       navigate({ to: (redirect || "/merchant") as any, replace: true });
+
     } finally {
       setBusy(false);
     }
@@ -137,14 +116,12 @@ useEffect(() => {
 
   const handleGoogleSignIn = async () => {
     setError(null);
-    // FIX: stash intent so AuthProvider's ensureProfileExists() knows this
-    // OAuth signup should create a merchant_profiles row, not just a
-    // customer profiles row. Without this, every Google/Apple signup
-    // defaulted to role: "customer" no matter which page initiated it.
     sessionStorage.setItem(OAUTH_INTENT_KEY, "merchant");
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/merchant` },
+      options: {
+        redirectTo: `${import.meta.env.VITE_APP_URL ?? window.location.origin}/auth/merchant`,
+      },
     });
     if (err) setError(err.message);
   };
@@ -154,7 +131,9 @@ useEffect(() => {
     sessionStorage.setItem(OAUTH_INTENT_KEY, "merchant");
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "apple",
-      options: { redirectTo: `${window.location.origin}/auth/merchant` },
+      options: {
+        redirectTo: `${import.meta.env.VITE_APP_URL ?? window.location.origin}/auth/merchant`,
+      },
     });
     if (err) setError(err.message);
   };
@@ -207,12 +186,24 @@ useEffect(() => {
       <form onSubmit={handleSubmit} className="mt-10 space-y-3">
         {mode === "signup" && (
           <>
-            <Field label="Your name" placeholder="Maya Rivera" icon={<User className="h-4 w-4" />} value={name} onChange={setName} />
-            <Field label="Store name" placeholder="Maison Aria" icon={<Store className="h-4 w-4" />} value={storeName} onChange={setStoreName} />
+            <Field
+              label="Your name" placeholder="Maya Rivera"
+              icon={<User className="h-4 w-4" />} value={name} onChange={setName}
+            />
+            <Field
+              label="Store name" placeholder="Maison Aria"
+              icon={<Store className="h-4 w-4" />} value={storeName} onChange={setStoreName}
+            />
           </>
         )}
-        <Field label="Business email" placeholder="hello@maison.com" type="email" icon={<Mail className="h-4 w-4" />} value={email} onChange={setEmail} />
-        <Field label="Password" placeholder="••••••••" type="password" icon={<Lock className="h-4 w-4" />} value={password} onChange={setPassword} />
+        <Field
+          label="Business email" placeholder="hello@maison.com" type="email"
+          icon={<Mail className="h-4 w-4" />} value={email} onChange={setEmail}
+        />
+        <Field
+          label="Password" placeholder="••••••••" type="password"
+          icon={<Lock className="h-4 w-4" />} value={password} onChange={setPassword}
+        />
 
         <button
           type="submit" disabled={busy}
@@ -231,8 +222,7 @@ useEffect(() => {
       </div>
 
       <div className="space-y-2">
-        <button
-          type="button" onClick={handleAppleSignIn}
+        <button type="button" onClick={handleAppleSignIn}
           className="glass flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-medium text-ink transition-all hover:bg-mist/80"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -240,8 +230,7 @@ useEffect(() => {
           </svg>
           Continue with Apple
         </button>
-        <button
-          type="button" onClick={handleGoogleSignIn}
+        <button type="button" onClick={handleGoogleSignIn}
           className="glass flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-medium text-ink transition-all hover:bg-mist/80"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24">
@@ -255,7 +244,7 @@ useEffect(() => {
       </div>
 
       <p className="mt-auto pt-8 text-center text-xs text-muted-foreground">
-        {mode === "signin" ? "New to Zentro?" : "Already have a business account?"}{" "}
+        {mode === "signin" ? "New to Zentro for business?" : "Already have a business account?"}{" "}
         <button
           type="button"
           onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); setSuccess(null); }}
@@ -265,8 +254,11 @@ useEffect(() => {
         </button>
       </p>
 
-      <Link to="/auth" className="mt-3 block text-center text-xs text-muted-foreground hover:text-ink hover:underline">
-        Customer sign in →
+      <Link
+        to="/auth"
+        className="mt-3 block text-center text-xs text-muted-foreground hover:text-ink hover:underline"
+      >
+        ← Customer sign in
       </Link>
     </div>
   );

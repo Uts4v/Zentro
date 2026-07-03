@@ -1,3 +1,4 @@
+//routes/merchant.intdex.tsx
 import { createFileRoute } from "@tanstack/react-router";
 import {
   TrendingUp,
