@@ -29,7 +29,15 @@ function Auth() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash;
-    if (!hash || !hash.includes("access_token")) return;
+    const search = window.location.search;
+
+    // Some OAuth providers return tokens in the hash (#access_token=...)
+    // while others may return a code or tokens in the query string.
+    const looksLikeOAuthCallback =
+      (hash && (hash.includes("access_token") || hash.includes("refresh_token"))) ||
+      (search && (search.includes("access_token") || search.includes("code") || search.includes("refresh_token")));
+
+    if (!looksLikeOAuthCallback) return;
 
     setOauthLoading(true);
 
@@ -37,93 +45,92 @@ function Auth() {
       (event, session) => {
         if (event === "SIGNED_IN" && session) {
           subscription.unsubscribe();
+          // Clear potential URL params so the UI doesn't mistakenly re-handle them
           window.history.replaceState(null, "", window.location.pathname);
           navigate({ to: (redirect || "/") as any, replace: true });
         }
       }
     );
 
+    // Give the SDK a bit more time to process the redirect (some providers
+    // and network conditions need slightly more than 3s). Fallback checks
+    // getSession() and navigates if a session exists.
     const fallback = setTimeout(async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        subscription.unsubscribe();
+        try { subscription.unsubscribe(); } catch {}
         window.history.replaceState(null, "", window.location.pathname);
         navigate({ to: (redirect || "/") as any, replace: true });
       } else {
         setOauthLoading(false);
       }
-    }, 3000);
+    }, 5000);
 
     return () => {
       clearTimeout(fallback);
-      subscription.unsubscribe();
+      try { subscription.unsubscribe(); } catch {}
     };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setBusy(true);
+  e.preventDefault();
+  setError(null);
+  setSuccess(null);
+  setBusy(true);
 
-    try {
-      if (mode === "signup") {
-        // Sign up always creates a customer account from this page
-        const { error: err } = await signUp(email, password, name, { role: "customer" });
-        if (err) {
-          setError(err);
-        } else {
-          setSuccess("Account created! Sign in to continue.");
-          setMode("signin");
-        }
-        return;
-      }
-
-      // Sign in — check if this is actually a merchant account and
-      // redirect them to the merchant auth page instead
-      const { error: err } = await signIn(email, password);
+  try {
+    if (mode === "signup") {
+      const { error: err } = await signUp(email, password, name, { role: "customer" });
       if (err) {
         setError(err);
+      } else {
+        setSuccess("Account created! Sign in to continue.");
+        setMode("signin");
+      }
+      return;
+    }
+
+    const { error: err } = await signIn(email, password);
+    if (err) {
+      setError(err);
+      return;
+    }
+
+    // Check if this is a merchant account and redirect accordingly
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data: mp } = await supabase
+        .from("merchant_profiles")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (mp) {
+        await supabase.auth.signOut();
+        navigate({
+          to: "/auth/merchant" as any,
+          search: { redirect: redirect || "/merchant" },
+          replace: true,
+        });
         return;
       }
-
-      // Check if signed-in user is a merchant — if so, sign them out
-      // and redirect to the merchant auth page
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data: mp } = await supabase
-          .from("merchant_profiles")
-          .select("id")
-          .eq("user_id", session.user.id)
-          .maybeSingle();
-
-        if (mp) {
-          // This is a merchant — sign out and send to merchant login
-          await supabase.auth.signOut();
-          navigate({
-            to: "/auth/merchant" as any,
-            search: { redirect: redirect || "/merchant" },
-            replace: true,
-          });
-          return;
-        }
-      }
-
-      await new Promise((r) => setTimeout(r, 300));
-      navigate({ to: (redirect || "/") as any, replace: true });
-
-    } finally {
-      setBusy(false);
     }
-  };
 
+    // Wait for AuthProvider to finish fetching profile
+    await new Promise((r) => setTimeout(r, 600));
+    navigate({ to: (redirect || "/") as any, replace: true });
+
+  } finally {
+    setBusy(false);
+  }
+};
   const handleGoogleSignIn = async () => {
     setError(null);
     sessionStorage.setItem(OAUTH_INTENT_KEY, "customer");
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${import.meta.env.VITE_APP_URL ?? window.location.origin}/auth`,
+        redirectTo: `${import.meta.env.VITE_APP_URL ?? window.location.origin}/auth/`,
       },
     });
     if (err) setError(err.message);
@@ -135,7 +142,7 @@ function Auth() {
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "apple",
       options: {
-        redirectTo: `${import.meta.env.VITE_APP_URL ?? window.location.origin}/auth`,
+        redirectTo: `${import.meta.env.VITE_APP_URL ?? window.location.origin}/auth/`,
       },
     });
     if (err) setError(err.message);

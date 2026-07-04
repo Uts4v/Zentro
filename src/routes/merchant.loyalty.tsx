@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Pencil, Trash2, X, Check, AlertCircle, Loader2, Gift } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { loyaltyApi } from "@/lib/api";
 
 export const Route = createFileRoute("/merchant/loyalty")({
   head: () => ({ meta: [{ title: "Loyalty · Merchant · Zentro" }] }),
@@ -242,26 +243,13 @@ function MerchantLoyalty() {
     setRedeemLoading(true);
     setRedeemResult(null);
     try {
-      const { data, error } = await supabase
-        .from("redemptions")
-        .select("*, profiles(full_name), rewards(name)")
-        .eq("code", redeemCode.trim())
-        .eq("status", "pending")
-        .maybeSingle();
-
-      if (error || !data) throw new Error("Code not found or already used");
-
-      // Mark as used
-      await supabase
-        .from("redemptions")
-        .update({ status: "used" })
-        .eq("id", data.id);
-
+      // Use server-side flow to confirm redemption and deduct points.
+      const res = await loyaltyApi.confirmRedemption(redeemCode.trim());
       setRedeemResult({
         success: true,
-        message: `Redeemed: ${(data as any).rewards?.name ?? "Reward"}`,
-        customer_name: (data as any).profiles?.full_name ?? "Customer",
-        points_deducted: data.points_spent,
+        message: `Redeemed`,
+        customer_name: res.customer_name,
+        points_deducted: res.points_deducted,
       });
       setRedeemCode("");
     } catch (e: any) {
@@ -288,20 +276,25 @@ function MerchantLoyalty() {
 
       const pts = Number(manualPoints);
       if (profile.points < pts) throw new Error("Customer has insufficient points");
+      // Use the centralized RPC to deduct points (respects RLS and syncs)
+      await (supabase.rpc as any)("deduct_points", {
+        target_user_id: profile.id,
+        amount: pts,
+      }).throwOnError();
 
-      const { error: updateError } = await supabase
+      // Fetch updated balance
+      const { data: updated } = await supabase
         .from("profiles")
-        .update({ points: profile.points - pts })
-        .eq("id", profile.id);
-
-      if (updateError) throw new Error(updateError.message);
+        .select("points")
+        .eq("id", profile.id)
+        .single();
 
       setManualResult({
         success: true,
         message: `${pts} pts deducted`,
         customer_name: profile.full_name ?? "Customer",
         points_deducted: pts,
-        new_balance: profile.points - pts,
+        new_balance: (updated as any).points,
       });
       setManualEmail("");
       setManualPoints("");

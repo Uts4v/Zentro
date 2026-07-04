@@ -30,17 +30,10 @@ function AuthGate() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const isPublic   = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
   const isMerchant = pathname.startsWith("/merchant");
-  // /admin has its own dedicated guard in admin.tsx (checks isAdmin, redirects
-  // non-admins to "/" without revealing the route exists). The root gate
-  // only needs to handle the "not logged in at all" case for it, same as
-  // any other protected route — role-specific logic for admin lives in
-  // admin.tsx itself, not here, to avoid duplicating that check in two places.
   const isAdminRoute = pathname.startsWith("/admin");
 
-  // A rejected merchant should be treated the same as "no merchant profile"
-  // for routing purposes — both get bounced out of /merchant/*.
   const merchantBlocked =
     merchantProfile === null || merchantProfile?.status === "rejected";
 
@@ -48,43 +41,21 @@ function AuthGate() {
     if (loading) return;
     if (isPublic) return;
 
-    // Not logged in and on a protected route → send to the right login page
-// Change this:
-if (!user) {
-  navigate({
-    to: (isMerchant ? "/auth/merchant" : "/auth") as any,
-    search: { redirect: pathname },
-    replace: true,
-  });
-  return;
-}
+    if (!user) {
+      const loginPage = isMerchant
+        ? "/auth/merchant"
+        : isAdminRoute
+        ? "/auth/admin"
+        : "/auth/";
 
-// To this:
-if (!user) {
-  const loginPage = isMerchant
-    ? "/auth/merchant"
-    : isAdminRoute
-    ? "/auth/admin"
-    : "/auth";
+      navigate({
+        to: loginPage as any,
+        search: { redirect: pathname },
+        replace: true,
+      });
+      return;
+    }
 
-  navigate({
-    to: loginPage as any,
-    search: { redirect: pathname },
-    replace: true,
-  });
-  return;
-}
-
-    // FIX: previously this gate only checked `if (user) return;` — any
-    // logged-in session, regardless of role, was let straight through to
-    // /merchant/* before merchant.tsx's own (correct) guard effect had a
-    // chance to run. That gap was part of the race that let freshly
-    // OAuth-signed-up customer accounts briefly render merchant pages.
-    // Now the root gate itself checks role for merchant routes too, so
-    // there's no window where a non-merchant session is considered "fine"
-    // at this layer. Pending merchants are allowed through (merchant.tsx
-    // shows its own banner); only a missing profile or "rejected" status
-    // is blocked here.
     if (isMerchant && merchantBlocked) {
       navigate({
         to: "/auth/merchant" as any,
@@ -95,10 +66,8 @@ if (!user) {
         replace: true,
       });
     }
-  }, [user, merchantProfile, merchantBlocked, loading, isPublic, isMerchant, pathname]);
+  }, [user, merchantProfile, merchantBlocked, loading, isPublic, isMerchant, isAdminRoute, pathname]);
 
-  // While auth is initialising on a protected route, show a full-screen spinner
-  // so the page never flashes protected content before the redirect fires
   if (loading && !isPublic) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -107,7 +76,6 @@ if (!user) {
     );
   }
 
-  // Auth done, not logged in, not a public route — spinner while redirect fires
   if (!loading && !user && !isPublic) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -116,8 +84,6 @@ if (!user) {
     );
   }
 
-  // Auth done, logged in, but on a merchant route with a blocked profile —
-  // spinner while the redirect above fires, same reasoning as merchant.tsx.
   if (!loading && user && isMerchant && merchantBlocked) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -128,7 +94,6 @@ if (!user) {
 
   return <Outlet />;
 }
-
 // ── Not found ─────────────────────────────────────────────────────────────────
 function NotFoundComponent() {
   return (

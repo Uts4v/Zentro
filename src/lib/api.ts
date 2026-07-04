@@ -617,6 +617,42 @@ export const rewardApi = {
       .single();
     if (redErr || !redemption) throw new Error(redErr?.message ?? "Redemption failed");
 
+    // Create a lightweight order for the merchant so they can see the
+    // redeemed reward in their orders list and hand it to the customer.
+    try {
+      const { data: order, error: orderErr } = await supabase
+        .from("orders")
+        .insert({
+          customer_id: userId,
+          merchant_id: reward.merchant_id,
+          status: "pending",
+          total_amount: 0,
+          points_earned: 0,
+          notes: `Redeemed reward: ${reward.name}`,
+        })
+        .select()
+        .single();
+
+      if (orderErr || !order) {
+        // Don't fail the entire redemption if order creation fails,
+        // but log the error to help debugging.
+        console.warn("Failed to create reward order:", orderErr);
+      } else {
+        await supabase.from("order_items").insert([
+          {
+            order_id: order.id,
+            menu_item_id: null,
+            name: `Reward: ${reward.name}`,
+            price: 0,
+            quantity: 1,
+            subtotal: 0,
+          },
+        ]);
+      }
+    } catch (e) {
+      console.warn("Error creating reward order:", e);
+    }
+
     return redemption as Redemption;
   },
 };
