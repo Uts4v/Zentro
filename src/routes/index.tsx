@@ -1,3 +1,4 @@
+//routes/index.tsx
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useStore, cartTotal, type MenuItem } from "@/lib/store";
 import { merchantApi, menuApi, customerApi } from "@/lib/api";

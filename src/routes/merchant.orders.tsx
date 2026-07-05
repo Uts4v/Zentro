@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Check, RefreshCw, Loader2, Clock, Bell } from "lucide-react";
+import { Check, RefreshCw, Loader2, Clock, Bell, X } from "lucide-react";
 import { orderApi, type Order, type OrderStatus } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
@@ -36,6 +36,11 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
   cancelled: "bg-rose-100 text-rose-500",
 };
 
+// Orders in these statuses can still be cancelled by the merchant.
+// Once an order is "ready" it's already made and about to be picked up,
+// so cancelling from there is disabled — adjust if you want otherwise.
+const CANCELLABLE: OrderStatus[] = ["pending", "confirmed", "preparing"];
+
 function MerchantOrders() {
   if (typeof window === "undefined") return null;
 
@@ -43,6 +48,8 @@ function MerchantOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [advancing, setAdvancing] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
   const [connected, setConnected] = useState(false);
@@ -166,6 +173,24 @@ function MerchantOrders() {
     }
   }
 
+  async function cancelOrder(order: Order) {
+    setCancelling(order.id);
+    setError("");
+    try {
+      // updateStatus (not orderApi.cancel) is used here because it also
+      // re-selects profiles(full_name), keeping the customer name shown
+      // on the card. It only runs the points/punch-card/streak RPCs when
+      // status === "confirmed", so cancelling never touches those.
+      const updated = await orderApi.updateStatus(order.id, "cancelled");
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)));
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setCancelling(null);
+      setConfirmCancelId(null);
+    }
+  }
+
   const grouped = {
     incoming: orders.filter((o) => o.status === "pending"),
     active: orders.filter((o) =>
@@ -227,6 +252,11 @@ function MerchantOrders() {
             order={o}
             onAdvance={() => advance(o)}
             advancing={advancing === o.id}
+            onCancel={() => setConfirmCancelId(o.id)}
+            cancelling={cancelling === o.id}
+            confirming={confirmCancelId === o.id}
+            onConfirmCancel={() => cancelOrder(o)}
+            onDismissCancel={() => setConfirmCancelId(null)}
             isNew={newOrderIds.has(o.id)}
           />
         ))}
@@ -240,6 +270,11 @@ function MerchantOrders() {
             order={o}
             onAdvance={() => advance(o)}
             advancing={advancing === o.id}
+            onCancel={() => setConfirmCancelId(o.id)}
+            cancelling={cancelling === o.id}
+            confirming={confirmCancelId === o.id}
+            onConfirmCancel={() => cancelOrder(o)}
+            onDismissCancel={() => setConfirmCancelId(null)}
             isNew={false}
           />
         ))}
@@ -285,11 +320,28 @@ function Empty({ text }: { text: string }) {
 }
 
 function OrderCard({
-  order, onAdvance, advancing, isNew,
+  order,
+  onAdvance,
+  advancing,
+  onCancel,
+  cancelling,
+  confirming,
+  onConfirmCancel,
+  onDismissCancel,
+  isNew,
 }: {
-  order: Order; onAdvance?: () => void; advancing: boolean; isNew: boolean;
+  order: Order;
+  onAdvance?: () => void;
+  advancing: boolean;
+  onCancel?: () => void;
+  cancelling?: boolean;
+  confirming?: boolean;
+  onConfirmCancel?: () => void;
+  onDismissCancel?: () => void;
+  isNew: boolean;
 }) {
   const next = NEXT_STATUS[order.status];
+  const canCancel = CANCELLABLE.includes(order.status);
   const mins = Math.floor(
     (Date.now() - new Date(order.created_at).getTime()) / 60_000
   );
@@ -343,15 +395,61 @@ function OrderCard({
         </span>
       </div>
 
-      {next && onAdvance && (
-        <button
-          onClick={onAdvance}
-          disabled={advancing}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-sm font-medium text-primary-foreground transition-transform active:scale-[0.98] disabled:opacity-50"
-        >
-          {advancing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-          {ADVANCE_LABEL[order.status]}
-        </button>
+      {confirming ? (
+        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3">
+          <p className="text-xs text-rose-700">
+            Cancel this order? This can't be undone.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={onConfirmCancel}
+              disabled={cancelling}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-600 text-xs font-medium text-white disabled:opacity-50"
+            >
+              {cancelling ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                "Yes, cancel"
+              )}
+            </button>
+            <button
+              onClick={onDismissCancel}
+              disabled={cancelling}
+              className="inline-flex h-9 flex-1 items-center justify-center rounded-xl border border-border bg-white text-xs font-medium text-ink disabled:opacity-50"
+            >
+              Keep order
+            </button>
+          </div>
+        </div>
+      ) : (
+        (next && onAdvance) || (canCancel && onCancel) ? (
+          <div className="mt-4 flex gap-2">
+            {next && onAdvance && (
+              <button
+                onClick={onAdvance}
+                disabled={advancing}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-ink text-sm font-medium text-primary-foreground transition-transform active:scale-[0.98] disabled:opacity-50"
+              >
+                {advancing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                {ADVANCE_LABEL[order.status]}
+              </button>
+            )}
+            {canCancel && onCancel && (
+              <button
+                onClick={onCancel}
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-rose-200 text-rose-500 transition-colors hover:bg-rose-50"
+                aria-label="Cancel order"
+                title="Cancel order"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        ) : null
       )}
     </article>
   );
