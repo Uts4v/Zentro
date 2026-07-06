@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/rewards")({
   beforeLoad: requireAuth,
-  head: () => ({ meta: [{ title: "Rewards · Zentro" }] }),
+  head: () => ({ meta: [{ title: "Rewards" }] }),
   component: Rewards,
 });
 

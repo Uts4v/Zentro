@@ -165,9 +165,6 @@ function Loyalty() {
                 {displayPoints.toLocaleString()}
               </p>
             )}
-            <p className="mt-1 text-xs text-white/60">
-              ≈ {Math.floor(displayPoints / 80)} free drinks available
-            </p>
           </div>
 
           {/* FIX: grid now has both columns and is properly closed */}

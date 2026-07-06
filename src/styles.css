@@ -1,3 +1,4 @@
+/* src/styles.css  */
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -38,6 +39,8 @@
   --color-ink: var(--ink);
   --color-ember: var(--ember);
   --color-ember-soft: var(--ember-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
   --color-mist: var(--mist);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -72,20 +75,20 @@
   --accent: oklch(0.96 0.008 60);
   --accent-foreground: oklch(0.2 0.01 270);
 
-  /* Warm ember accent for loyalty/CTA */
-  --ember: oklch(0.68 0.16 45);
-  --ember-soft: oklch(0.92 0.05 60);
+  /* Tea-garden green accent for loyalty/CTA (Nepal Tea Exchange-inspired) */
+  --ember: oklch(0.5 0.1 150);
+  --ember-soft: oklch(0.93 0.045 145);
 
   --destructive: oklch(0.62 0.22 27);
   --destructive-foreground: oklch(0.99 0.002 80);
 
   --border: oklch(0.92 0.006 80);
   --input: oklch(0.92 0.006 80);
-  --ring: oklch(0.68 0.16 45);
+  --ring: oklch(0.5 0.1 150);
 
-  --chart-1: oklch(0.68 0.16 45);
+  --chart-1: oklch(0.5 0.1 150);
   --chart-2: oklch(0.55 0.12 220);
-  --chart-3: oklch(0.7 0.14 150);
+  --chart-3: oklch(0.68 0.14 100);
   --chart-4: oklch(0.78 0.14 90);
   --chart-5: oklch(0.55 0.18 320);
 
@@ -101,9 +104,23 @@
     0 8px 24px -8px color-mix(in oklab, oklch(0.2 0.02 270) 12%, transparent);
   --shadow-ember: 0 10px 40px -10px color-mix(in oklab, var(--ember) 45%, transparent);
 
-  --gradient-warm: radial-gradient(120% 80% at 0% 0%, oklch(0.97 0.03 60) 0%, transparent 55%),
-    radial-gradient(100% 70% at 100% 100%, oklch(0.96 0.04 30) 0%, transparent 50%);
-  --gradient-ember: linear-gradient(135deg, oklch(0.74 0.17 45), oklch(0.62 0.18 25));
+  --gradient-warm: radial-gradient(120% 80% at 0% 0%, oklch(0.97 0.025 140) 0%, transparent 55%),
+    radial-gradient(100% 70% at 100% 100%, oklch(0.96 0.03 95) 0%, transparent 50%);
+  --gradient-ember: linear-gradient(135deg, oklch(0.58 0.12 150), oklch(0.4 0.1 155));
+
+  /* Warm gold — the second half of the "tea tin" palette, used for
+     celebratory / reward moments (free items, streak bonuses) so they
+     don't clash with the green base */
+  --gold: oklch(0.78 0.13 85);
+  --gold-soft: oklch(0.94 0.045 90);
+  --gradient-gold: linear-gradient(135deg, oklch(0.83 0.13 88), oklch(0.68 0.15 68));
+
+  /* Deep tea-green gradient for the loyalty card — replaces flat black
+     so it reads as premium tea packaging rather than a dark UI panel */
+  --gradient-loyalty: linear-gradient(160deg,
+    oklch(0.17 0.035 155) 0%,
+    oklch(0.3 0.055 150) 55%,
+    oklch(0.21 0.045 160) 100%);
 }
 
 .dark {
@@ -176,6 +193,14 @@
 
 @utility gradient-ember {
   background: var(--gradient-ember);
+}
+
+@utility gradient-gold {
+  background: var(--gradient-gold);
+}
+
+@utility gradient-loyalty {
+  background: var(--gradient-loyalty);
 }
 
 @utility hairline {

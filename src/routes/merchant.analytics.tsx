@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/merchant/analytics")({
-  head: () => ({ meta: [{ title: "Analytics · Merchant · Zentro" }] }),
+  head: () => ({ meta: [{ title: "Analytics · Merchant" }] }),
   component: Analytics,
 });
 

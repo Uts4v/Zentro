@@ -66,7 +66,7 @@ function Profile() {
             <h1 className="font-display truncate text-3xl text-ink">
               {displayName}
             </h1>
-            <p className="text-xs text-muted-foreground">Zentro member</p>
+            <p className="text-xs text-muted-foreground">Member</p>
           </div>
         </div>
       </section>
@@ -120,9 +120,9 @@ function Profile() {
 
       <section className="mt-6 px-5">
         <div className="glass-strong divide-y divide-border rounded-3xl">
-          <Row icon={Bell} label="Notifications" />
+          {/* <Row icon={Bell} label="Notifications" />
           <Row icon={CreditCard} label="Payment methods" />
-          <Row icon={Settings} label="Account settings" />
+          <Row icon={Settings} label="Account settings" /> */}
           <button
             onClick={handleSignOut}
             className="flex w-full items-center gap-3 p-4 text-left"

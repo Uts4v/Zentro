@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/merchant")({
-  head: () => ({ meta: [{ title: "Merchant · Zentro" }] }),
+  head: () => ({ meta: [{ title: "Merchant" }] }),
   component: MerchantLayout,
 });
 
@@ -105,15 +105,7 @@ function MerchantLayout() {
   function SidebarContent() {
     return (
       <>
-        {/* Logo */}
-        <div className="border-b border-border px-6 py-6">
-          <Link to="/" className="font-display text-2xl text-ink">
-            zentro<span className="text-ember">.</span>
-          </Link>
-          <p className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            for business
-          </p>
-        </div>
+
 
         {/* Store badge */}
         <div className="border-b border-border px-6 py-4">

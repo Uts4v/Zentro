@@ -162,7 +162,7 @@ function Auth() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col px-5 pb-10 pt-10">
       <Link to="/" className="font-display text-2xl text-ink">
-        zentro<span className="text-ember">.</span>
+        <span className="text-ember">.</span>
       </Link>
 
       <div className="mt-12">
@@ -278,7 +278,7 @@ function Auth() {
       </div>
 
       <p className="mt-auto pt-8 text-center text-xs text-muted-foreground">
-        {mode === "signin" ? "New to Zentro?" : "Already have an account?"}{" "}
+        {mode === "signin" ? "New Here?" : "Already have an account?"}{" "}
         <button
           type="button"
           onClick={() => {
