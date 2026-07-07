@@ -814,3 +814,49 @@ export const loyaltyApi = {
     return (data ?? []) as Redemption[];
   },
 };
+
+// ── Notifications ─────────────────────────────────────────────────────────
+
+export interface AppNotification {
+  id: string;
+  recipient_id: string;
+  recipient_role: "customer" | "merchant";
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, any>;
+  is_read: boolean;
+  created_at: string;
+}
+
+export const notificationApi = {
+  list: async (limit = 30): Promise<AppNotification[]> => {
+    const userId = await getCurrentUserId();
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("recipient_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as AppNotification[];
+  },
+
+  markRead: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+
+  markAllRead: async (): Promise<void> => {
+    const userId = await getCurrentUserId();
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("recipient_id", userId)
+      .eq("is_read", false);
+    if (error) throw new Error(error.message);
+  },
+};

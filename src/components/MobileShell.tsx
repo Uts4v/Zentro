@@ -1,7 +1,10 @@
+// components/MobileShell 
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Home, ScanLine, Trophy, Gift, User } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import type { ReactNode } from "react";
+import { NotificationBell } from "@/components/NotificationBell";
+
 
 type NavItem = { to: string; label: string; icon: typeof Home; center?: boolean };
 const nav: NavItem[] = [
@@ -90,6 +93,7 @@ export function TopBar({ title, right }: { title?: string; right?: ReactNode }) 
         {/* Right: avatar */}
         <div className="flex items-center gap-2">
           {right}
+          <NotificationBell />
           <Link
             to={"/profile" as any}
             aria-label="Profile"

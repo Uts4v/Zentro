@@ -13,6 +13,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
+import { NotificationToastProvider } from "@/components/NotificationToast";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -24,6 +25,7 @@ const PUBLIC_ROUTES = [
   "/auth/admin",
   "/auth/forgot-password",
 ];
+
 // ── Auth gate — rendered inside AuthProvider so useAuth() works ───────────────
 function AuthGate() {
   const { user, merchantProfile, loading } = useAuth();
@@ -92,8 +94,18 @@ function AuthGate() {
     );
   }
 
-  return <Outlet />;
+  return (
+    <>
+      {/* Mounted once here (not per-page) so toast notifications keep
+          working no matter which route — customer or merchant — is
+          currently active. Only renders once `user` exists, since the
+          provider subscribes using auth.uid(). */}
+      {user && <NotificationToastProvider />}
+      <Outlet />
+    </>
+  );
 }
+
 // ── Not found ─────────────────────────────────────────────────────────────────
 function NotFoundComponent() {
   return (
