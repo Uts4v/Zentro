@@ -8,7 +8,7 @@ import { Flame, Trophy, Medal, Star } from "lucide-react";
 
 export const Route = createFileRoute("/leaderboard")({
   beforeLoad: requireAuth,
-  head: () => ({ meta: [{ title: "Leaderboard · Zentro" }] }),
+  head: () => ({ meta: [{ title: "Leaderboard" }] }),
   component: Leaders,
 });
 

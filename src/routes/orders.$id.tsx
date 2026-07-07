@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/orders/$id")({
   beforeLoad: requireAuth,
-  head: () => ({ meta: [{ title: "Tracking order · Zentro" }] }),
+  head: () => ({ meta: [{ title: "Tracking order" }] }),
   component: OrderPage,
 });
 

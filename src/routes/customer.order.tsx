@@ -102,12 +102,46 @@ function CustomerOrder() {
 
   const cartCount = cart.reduce((s, c) => s + c.qty, 0);
 
-  const categories = useMemo(
-    () => ["All", ...Array.from(new Set(menu.map((i) => i.category).filter(Boolean)))],
-    [menu]
-  );
+  // ── Category grouping ──────────────────────────────────────────────────
+  // Groups menu items by their `category` field. Only categories that
+  // actually have at least one item show up — nothing hardcoded, fully
+  // driven by whatever the merchant has set on their items. Items with no
+  // category fall into "Other" so nothing silently disappears.
+  const groupedMenu = useMemo(() => {
+    const groups: Record<string, MenuItem[]> = {};
+    menu.forEach((item) => {
+      const cat = item.category?.trim() || "Other";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    return groups;
+  }, [menu]);
 
-  const visibleMenu = filterCat === "All" ? menu : menu.filter((i) => i.category === filterCat);
+  // Preserve first-seen order of categories as they appear in the menu data
+  const categoryOrder = useMemo(() => {
+    const seen: string[] = [];
+    menu.forEach((item) => {
+      const cat = item.category?.trim() || "Other";
+      if (!seen.includes(cat)) seen.push(cat);
+    });
+    return seen;
+  }, [menu]);
+
+  const categories = useMemo(() => ["All", ...categoryOrder], [categoryOrder]);
+
+  // Which category sections to render: all of them, or just the one selected
+  const visibleCategories = filterCat === "All" ? categoryOrder : categoryOrder.filter((c) => c === filterCat);
+
+  const visibleMenu = filterCat === "All" ? menu : menu.filter((i) => (i.category?.trim() || "Other") === filterCat);
+
+  function scrollToCategory(cat: string) {
+    setFilterCat("All");
+    // wait a tick for the "All" view to render before scrolling
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`menu-cat-${cat}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   async function placeOrder() {
     if (!selectedMerchant || cart.length === 0) return;
@@ -247,13 +281,13 @@ function CustomerOrder() {
         </div>
       )}
 
-      {/* Category tabs */}
+      {/* Category tabs — jump-links into the sections below */}
       {categories.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {categories.map((cat) => (
             <button
               key={cat}
-              onClick={() => setFilterCat(cat)}
+              onClick={() => (cat === "All" ? setFilterCat("All") : scrollToCategory(cat))}
               className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
                 filterCat === cat
                   ? "bg-ink text-primary-foreground"
@@ -266,7 +300,7 @@ function CustomerOrder() {
         </div>
       )}
 
-      {/* Menu grid */}
+      {/* Menu — grouped into sections by category */}
       {menuLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -276,19 +310,31 @@ function CustomerOrder() {
           No items available
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleMenu.map((item) => {
-            const inCart = cart.find((c) => c.item.id === item.id);
-            return (
-              <MenuCard
-                key={item.id}
-                item={item}
-                qty={inCart?.qty ?? 0}
-                onAdd={() => addToCart(item)}
-                onRemove={() => removeFromCart(item.id)}
-              />
-            );
-          })}
+        <div className="space-y-10">
+          {visibleCategories.map((cat) => (
+            <section key={cat} id={`menu-cat-${cat}`} className="scroll-mt-24">
+              <div className="mb-4 flex items-baseline gap-3">
+                <h2 className="font-display text-2xl text-ink">{cat}</h2>
+                <span className="text-xs text-muted-foreground">
+                  {groupedMenu[cat].length} {groupedMenu[cat].length === 1 ? "item" : "items"}
+                </span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {groupedMenu[cat].map((item) => {
+                  const inCart = cart.find((c) => c.item.id === item.id);
+                  return (
+                    <MenuCard
+                      key={item.id}
+                      item={item}
+                      qty={inCart?.qty ?? 0}
+                      onAdd={() => addToCart(item)}
+                      onRemove={() => removeFromCart(item.id)}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 

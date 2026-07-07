@@ -13,7 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/merchant/")({
-  head: () => ({ meta: [{ title: "Overview · Merchant · Zentro" }] }),
+  head: () => ({ meta: [{ title: "Overview · Merchant" }] }),
   component: Overview,
 });
 

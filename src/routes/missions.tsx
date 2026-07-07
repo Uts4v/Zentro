@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/missions")({
   beforeLoad: requireAuth,
-  head: () => ({ meta: [{ title: "Missions · Zentro" }] }),
+  head: () => ({ meta: [{ title: "Missions" }] }),
   component: Missions,
 });
 

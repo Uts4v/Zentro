@@ -8,7 +8,7 @@ import { optimizeImage } from "@/lib/image-optimize";
 import { uploadImage } from "@/lib/image-upload";
 
 export const Route = createFileRoute("/merchant/store")({
-  head: () => ({ meta: [{ title: "Store · Merchant · Zentro" }] }),
+  head: () => ({ meta: [{ title: "Store · Merchant" }] }),
   component: StoreConfig,
 });
 
