@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StoresRouteImport } from './routes/stores'
 import { Route as RewardsRouteImport } from './routes/rewards'
+import { Route as RetailRouteImport } from './routes/retail'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MissionsRouteImport } from './routes/missions'
 import { Route as MerchantRouteImport } from './routes/merchant'
@@ -25,6 +26,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StoresIdRouteImport } from './routes/stores_.$id'
 import { Route as OrdersIdRouteImport } from './routes/orders.$id'
 import { Route as MerchantStoreRouteImport } from './routes/merchant.store'
+import { Route as MerchantRetailRouteImport } from './routes/merchant.retail'
 import { Route as MerchantOrdersRouteImport } from './routes/merchant.orders'
 import { Route as MerchantMenuRouteImport } from './routes/merchant.menu'
 import { Route as MerchantLoyaltyRouteImport } from './routes/merchant.loyalty'
@@ -47,6 +49,11 @@ const StoresRoute = StoresRouteImport.update({
 const RewardsRoute = RewardsRouteImport.update({
   id: '/rewards',
   path: '/rewards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RetailRoute = RetailRouteImport.update({
+  id: '/retail',
+  path: '/retail',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -117,6 +124,11 @@ const OrdersIdRoute = OrdersIdRouteImport.update({
 const MerchantStoreRoute = MerchantStoreRouteImport.update({
   id: '/store',
   path: '/store',
+  getParentRoute: () => MerchantRoute,
+} as any)
+const MerchantRetailRoute = MerchantRetailRouteImport.update({
+  id: '/retail',
+  path: '/retail',
   getParentRoute: () => MerchantRoute,
 } as any)
 const MerchantOrdersRoute = MerchantOrdersRouteImport.update({
@@ -194,6 +206,7 @@ export interface FileRoutesByFullPath {
   '/merchant': typeof MerchantRouteWithChildren
   '/missions': typeof MissionsRoute
   '/profile': typeof ProfileRoute
+  '/retail': typeof RetailRoute
   '/rewards': typeof RewardsRoute
   '/stores': typeof StoresRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -209,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
   '/merchant/menu': typeof MerchantMenuRoute
   '/merchant/orders': typeof MerchantOrdersRoute
+  '/merchant/retail': typeof MerchantRetailRoute
   '/merchant/store': typeof MerchantStoreRoute
   '/orders/$id': typeof OrdersIdRoute
   '/stores/$id': typeof StoresIdRoute
@@ -223,6 +237,7 @@ export interface FileRoutesByTo {
   '/loyalty': typeof LoyaltyRoute
   '/missions': typeof MissionsRoute
   '/profile': typeof ProfileRoute
+  '/retail': typeof RetailRoute
   '/rewards': typeof RewardsRoute
   '/stores': typeof StoresRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -238,6 +253,7 @@ export interface FileRoutesByTo {
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
   '/merchant/menu': typeof MerchantMenuRoute
   '/merchant/orders': typeof MerchantOrdersRoute
+  '/merchant/retail': typeof MerchantRetailRoute
   '/merchant/store': typeof MerchantStoreRoute
   '/orders/$id': typeof OrdersIdRoute
   '/stores/$id': typeof StoresIdRoute
@@ -255,6 +271,7 @@ export interface FileRoutesById {
   '/merchant': typeof MerchantRouteWithChildren
   '/missions': typeof MissionsRoute
   '/profile': typeof ProfileRoute
+  '/retail': typeof RetailRoute
   '/rewards': typeof RewardsRoute
   '/stores': typeof StoresRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -270,6 +287,7 @@ export interface FileRoutesById {
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
   '/merchant/menu': typeof MerchantMenuRoute
   '/merchant/orders': typeof MerchantOrdersRoute
+  '/merchant/retail': typeof MerchantRetailRoute
   '/merchant/store': typeof MerchantStoreRoute
   '/orders/$id': typeof OrdersIdRoute
   '/stores_/$id': typeof StoresIdRoute
@@ -288,6 +306,7 @@ export interface FileRouteTypes {
     | '/merchant'
     | '/missions'
     | '/profile'
+    | '/retail'
     | '/rewards'
     | '/stores'
     | '/admin/analytics'
@@ -303,6 +322,7 @@ export interface FileRouteTypes {
     | '/merchant/loyalty'
     | '/merchant/menu'
     | '/merchant/orders'
+    | '/merchant/retail'
     | '/merchant/store'
     | '/orders/$id'
     | '/stores/$id'
@@ -317,6 +337,7 @@ export interface FileRouteTypes {
     | '/loyalty'
     | '/missions'
     | '/profile'
+    | '/retail'
     | '/rewards'
     | '/stores'
     | '/admin/analytics'
@@ -332,6 +353,7 @@ export interface FileRouteTypes {
     | '/merchant/loyalty'
     | '/merchant/menu'
     | '/merchant/orders'
+    | '/merchant/retail'
     | '/merchant/store'
     | '/orders/$id'
     | '/stores/$id'
@@ -348,6 +370,7 @@ export interface FileRouteTypes {
     | '/merchant'
     | '/missions'
     | '/profile'
+    | '/retail'
     | '/rewards'
     | '/stores'
     | '/admin/analytics'
@@ -363,6 +386,7 @@ export interface FileRouteTypes {
     | '/merchant/loyalty'
     | '/merchant/menu'
     | '/merchant/orders'
+    | '/merchant/retail'
     | '/merchant/store'
     | '/orders/$id'
     | '/stores_/$id'
@@ -380,6 +404,7 @@ export interface RootRouteChildren {
   MerchantRoute: typeof MerchantRouteWithChildren
   MissionsRoute: typeof MissionsRoute
   ProfileRoute: typeof ProfileRoute
+  RetailRoute: typeof RetailRoute
   RewardsRoute: typeof RewardsRoute
   StoresRoute: typeof StoresRoute
   AuthAdminRoute: typeof AuthAdminRoute
@@ -407,6 +432,13 @@ declare module '@tanstack/react-router' {
       path: '/rewards'
       fullPath: '/rewards'
       preLoaderRoute: typeof RewardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/retail': {
+      id: '/retail'
+      path: '/retail'
+      fullPath: '/retail'
+      preLoaderRoute: typeof RetailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -505,6 +537,13 @@ declare module '@tanstack/react-router' {
       path: '/store'
       fullPath: '/merchant/store'
       preLoaderRoute: typeof MerchantStoreRouteImport
+      parentRoute: typeof MerchantRoute
+    }
+    '/merchant/retail': {
+      id: '/merchant/retail'
+      path: '/retail'
+      fullPath: '/merchant/retail'
+      preLoaderRoute: typeof MerchantRetailRouteImport
       parentRoute: typeof MerchantRoute
     }
     '/merchant/orders': {
@@ -622,6 +661,7 @@ interface MerchantRouteChildren {
   MerchantLoyaltyRoute: typeof MerchantLoyaltyRoute
   MerchantMenuRoute: typeof MerchantMenuRoute
   MerchantOrdersRoute: typeof MerchantOrdersRoute
+  MerchantRetailRoute: typeof MerchantRetailRoute
   MerchantStoreRoute: typeof MerchantStoreRoute
   MerchantIndexRoute: typeof MerchantIndexRoute
 }
@@ -631,6 +671,7 @@ const MerchantRouteChildren: MerchantRouteChildren = {
   MerchantLoyaltyRoute: MerchantLoyaltyRoute,
   MerchantMenuRoute: MerchantMenuRoute,
   MerchantOrdersRoute: MerchantOrdersRoute,
+  MerchantRetailRoute: MerchantRetailRoute,
   MerchantStoreRoute: MerchantStoreRoute,
   MerchantIndexRoute: MerchantIndexRoute,
 }
@@ -648,6 +689,7 @@ const rootRouteChildren: RootRouteChildren = {
   MerchantRoute: MerchantRouteWithChildren,
   MissionsRoute: MissionsRoute,
   ProfileRoute: ProfileRoute,
+  RetailRoute: RetailRoute,
   RewardsRoute: RewardsRoute,
   StoresRoute: StoresRoute,
   AuthAdminRoute: AuthAdminRoute,

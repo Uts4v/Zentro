@@ -860,3 +860,216 @@ export const notificationApi = {
     if (error) throw new Error(error.message);
   },
 };
+// ── Retail ────────────────────────────────────────────────────────────────────
+
+export interface RetailProduct {
+  id: string;
+  merchant_id: string;
+  name: string;
+  description: string;
+  price: string;
+  image_url: string;
+  category: string;
+  emoji: string;
+  stock: number;
+  weight_grams: number | null;
+  is_available: boolean;
+  is_featured: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type RetailProductInput = Omit<RetailProduct, "id" | "merchant_id" | "created_at" | "updated_at">;
+
+export interface RetailOrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  name: string;
+  price: string;
+  quantity: number;
+  subtotal: string;
+}
+
+export interface RetailOrder {
+  id: string;
+  customer_id: string;
+  merchant_id: string;
+  status: OrderStatus;
+  total_amount: string;
+  notes: string;
+  shipping_name: string;
+  shipping_phone: string;
+  shipping_address: string;
+  created_at: string;
+  updated_at: string;
+  retail_order_items: RetailOrderItem[];
+  profiles?: { full_name: string | null };
+  merchant_profiles?: { store_name: string };
+}
+
+export interface CreateRetailOrderPayload {
+  merchant_id: string;
+  items: {
+    product_id: string;
+    quantity: number;
+    name: string;
+    price: number;
+  }[];
+  notes?: string;
+  shipping_name: string;
+  shipping_phone: string;
+  shipping_address: string;
+}
+
+export const retailApi = {
+  // Merchant — manage products
+  myProducts: async (): Promise<RetailProduct[]> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+    const { data, error } = await supabase
+      .from("retail_products")
+      .select("*")
+      .eq("merchant_id", merchant.id)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as RetailProduct[];
+  },
+
+  createProduct: async (input: Partial<RetailProductInput>): Promise<RetailProduct> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+    const { data, error } = await supabase
+      .from("retail_products")
+      .insert({ ...input, merchant_id: merchant.id })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as RetailProduct;
+  },
+
+  updateProduct: async (id: string, input: Partial<RetailProductInput>): Promise<RetailProduct> => {
+    const { data, error } = await supabase
+      .from("retail_products")
+      .update({ ...input, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as RetailProduct;
+  },
+
+  deleteProduct: async (id: string): Promise<void> => {
+    const { error } = await supabase.from("retail_products").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+
+  toggleProduct: async (id: string): Promise<RetailProduct> => {
+    const { data: current, error: fetchErr } = await supabase
+      .from("retail_products")
+      .select("is_available")
+      .eq("id", id)
+      .single();
+    if (fetchErr || !current) throw new Error("Product not found");
+    const { data, error } = await supabase
+      .from("retail_products")
+      .update({ is_available: !current.is_available, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as RetailProduct;
+  },
+
+  // Customer — browse products
+  forMerchant: async (merchantId: string): Promise<RetailProduct[]> => {
+    const { data, error } = await supabase
+      .from("retail_products")
+      .select("*")
+      .eq("merchant_id", merchantId)
+      .eq("is_available", true)
+      .order("category");
+    if (error) throw new Error(error.message);
+    return (data ?? []) as RetailProduct[];
+  },
+
+  allAvailable: async (): Promise<RetailProduct[]> => {
+    const { data, error } = await supabase
+      .from("retail_products")
+      .select("*, merchant_profiles(store_name)")
+      .eq("is_available", true)
+      .order("category");
+    if (error) throw new Error(error.message);
+    return (data ?? []) as RetailProduct[];
+  },
+
+  // Orders — customer
+  createOrder: async (payload: CreateRetailOrderPayload): Promise<RetailOrder> => {
+    const userId = await getCurrentUserId();
+    const total = payload.items.reduce((s, i) => s + i.price * i.quantity, 0);
+
+    const { data: order, error: orderErr } = await supabase
+      .from("retail_orders")
+      .insert({
+        customer_id: userId,
+        merchant_id: payload.merchant_id,
+        status: "pending",
+        total_amount: total,
+        notes: payload.notes ?? "",
+        shipping_name: payload.shipping_name,
+        shipping_phone: payload.shipping_phone,
+        shipping_address: payload.shipping_address,
+      })
+      .select()
+      .single();
+    if (orderErr || !order) throw new Error(orderErr?.message ?? "Failed to create order");
+
+    const items = payload.items.map((i) => ({
+      order_id: order.id,
+      product_id: i.product_id,
+      name: i.name,
+      price: i.price,
+      quantity: i.quantity,
+      subtotal: i.price * i.quantity,
+    }));
+    const { error: itemsErr } = await supabase.from("retail_order_items").insert(items);
+    if (itemsErr) throw new Error(itemsErr.message);
+
+    return { ...order, retail_order_items: items } as RetailOrder;
+  },
+
+  myOrders: async (): Promise<RetailOrder[]> => {
+    const userId = await getCurrentUserId();
+    const { data, error } = await supabase
+      .from("retail_orders")
+      .select("*, retail_order_items(*), merchant_profiles(store_name)")
+      .eq("customer_id", userId)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as RetailOrder[];
+  },
+
+  // Orders — merchant
+  storeOrders: async (): Promise<RetailOrder[]> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+    const { data, error } = await supabase
+      .from("retail_orders")
+      .select("*, retail_order_items(*), profiles!retail_orders_customer_profile_fkey(full_name)")
+      .eq("merchant_id", merchant.id)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as RetailOrder[];
+  },
+
+  updateOrderStatus: async (id: string, status: OrderStatus): Promise<RetailOrder> => {
+    const { data, error } = await supabase
+      .from("retail_orders")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("*, retail_order_items(*), profiles!retail_orders_customer_profile_fkey(full_name)")
+      .single();
+    if (error) throw new Error(error.message);
+    return data as RetailOrder;
+  },
+};

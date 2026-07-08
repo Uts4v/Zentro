@@ -1,16 +1,18 @@
 // components/MobileShell 
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, ScanLine, Trophy, Gift, User } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import type { ReactNode } from "react";
 import { NotificationBell } from "@/components/NotificationBell";
-
+import { Home, ScanLine, Trophy, Gift, User, Package } from "lucide-react";
 
 type NavItem = { to: string; label: string; icon: typeof Home; center?: boolean };
+
+
 const nav: NavItem[] = [
   { to: "/",            label: "Shop",    icon: Home },
   { to: "/missions",    label: "Missions", icon: ScanLine },
   { to: "/loyalty",     label: "Card",    icon: User, center: true },
+  { to: "/retail",      label: "Shop",    icon: Package },   // ← add this
   { to: "/rewards",     label: "Rewards", icon: Gift },
   { to: "/leaderboard", label: "Ranks",   icon: Trophy },
 ];

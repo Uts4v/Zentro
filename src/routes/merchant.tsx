@@ -19,6 +19,7 @@ import {
   Store,
   LogOut,
   Menu,
+  Package,
 } from "lucide-react";
 
 export const Route = createFileRoute("/merchant")({
@@ -33,6 +34,7 @@ const navItems = [
   { to: "/merchant/loyalty", label: "Loyalty", icon: Trophy },
   { to: "/merchant/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/merchant/store", label: "Store", icon: Store },
+  { to: "/merchant/retail", label: "Retail", icon: Package }
 ];
 
 function MerchantLayout() {
