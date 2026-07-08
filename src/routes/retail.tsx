@@ -1,3 +1,4 @@
+// routes/ retails.tsx 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MobileShell, TopBar } from "@/components/MobileShell";
 import { requireAuth } from "@/lib/auth-guard";

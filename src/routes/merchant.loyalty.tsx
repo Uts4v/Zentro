@@ -1,3 +1,4 @@
+// routes/merchant.loyalty.tsx 
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Plus, Pencil, Trash2, X, Check, AlertCircle, Loader2,

@@ -1,3 +1,4 @@
+// routes/merchant.retails.tsx 
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
