@@ -124,6 +124,13 @@ function CustomerOrder() {
       const cat = item.category?.trim() || "Other";
       if (!seen.includes(cat)) seen.push(cat);
     });
+    seen.sort((a, b) => {
+      const isABasic = a.toLowerCase() === "basic";
+      const isBBasic = b.toLowerCase() === "basic";
+      if (isABasic && !isBBasic) return -1;
+      if (!isABasic && isBBasic) return 1;
+      return 0;
+    });
     return seen;
   }, [menu]);
 

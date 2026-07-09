@@ -162,6 +162,13 @@ function Index() {
       const c = m.category?.trim() || "Other";
       if (!seen.includes(c)) seen.push(c);
     });
+    seen.sort((a, b) => {
+      const isABasic = a.toLowerCase() === "basic";
+      const isBBasic = b.toLowerCase() === "basic";
+      if (isABasic && !isBBasic) return -1;
+      if (!isABasic && isBBasic) return 1;
+      return 0;
+    });
     return seen;
   }, [searchFiltered]);
 
