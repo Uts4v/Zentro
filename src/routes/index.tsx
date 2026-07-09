@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useStore, cartTotal, type MenuItem } from "@/lib/store";
 import { merchantApi, menuApi, customerApi } from "@/lib/api";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { Plus, ShoppingBag, Flame, Trophy, Stamp, Loader2 } from "lucide-react";
+import { Plus, ShoppingBag, Flame, Trophy, Stamp, Loader2, Search, X } from "lucide-react";
 import { requireAuth } from "@/lib/auth-guard";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
@@ -78,6 +78,15 @@ function Index() {
   const [loading, setLoading] = useState(true);
   const [cat, setCat] = useState<string>("All");
 
+  // ── Search ──────────────────────────────────────────────────────────────
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  function closeSearch() {
+    setSearchOpen(false);
+    setSearch("");
+  }
+
   useEffect(() => {
     async function init() {
       setLoading(true);
@@ -135,17 +144,32 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMerchantId]);
 
+  // Search filters the raw menu first — categories, counts, and grouping
+  // below are all derived from this so everything stays in sync as you type.
+  const searchFiltered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return menuItems;
+    return menuItems.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.description ?? "").toLowerCase().includes(q)
+    );
+  }, [menuItems, search]);
+
   const categoryOrder = useMemo(() => {
     const seen: string[] = [];
-    menuItems.forEach((m) => {
+    searchFiltered.forEach((m) => {
       const c = m.category?.trim() || "Other";
       if (!seen.includes(c)) seen.push(c);
     });
     return seen;
-  }, [menuItems]);
+  }, [searchFiltered]);
 
   const cats = ["All", ...categoryOrder];
-  const items = cat === "All" ? menuItems : menuItems.filter((m) => (m.category?.trim() || "Other") === cat);
+  const items =
+    cat === "All"
+      ? searchFiltered
+      : searchFiltered.filter((m) => (m.category?.trim() || "Other") === cat);
 
   const groupedItems = useMemo(() => {
     const groups: Record<string, MenuItem[]> = {};
@@ -173,7 +197,38 @@ function Index() {
 
   return (
     <MobileShell>
-      <TopBar />
+      <TopBar
+        right={
+          <button
+            onClick={() => setSearchOpen((o) => !o)}
+            aria-label="Search menu"
+            className={`grid h-9 w-9 place-items-center rounded-full transition-colors ${
+              searchOpen ? "bg-ink text-white" : "bg-mist text-ink"
+            }`}
+          >
+            <Search className="h-4 w-4" strokeWidth={1.8} />
+          </button>
+        }
+      />
+
+      {/* Search bar — only shown once toggled open */}
+      {searchOpen && (
+        <section className="px-5 pb-1">
+          <div className="glass-strong flex items-center gap-2 rounded-2xl px-4 py-2.5">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search menu…"
+              className="flex-1 bg-transparent text-sm text-ink placeholder:text-muted-foreground focus:outline-none"
+            />
+            <button onClick={closeSearch} aria-label="Close search" className="shrink-0">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Merchant hero */}
       <section className="px-5">
@@ -243,6 +298,11 @@ function Index() {
         {!loading && selectedMerchantId && menuItems.length === 0 && (
           <p className="text-center text-sm text-muted-foreground">
             No menu items available.
+          </p>
+        )}
+        {!loading && selectedMerchantId && menuItems.length > 0 && searchFiltered.length === 0 && (
+          <p className="text-center text-sm text-muted-foreground">
+            No items match "{search}".
           </p>
         )}
         {!loading && items.length > 0 && (

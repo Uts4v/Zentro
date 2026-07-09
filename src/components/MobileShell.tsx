@@ -7,14 +7,16 @@ import { Home, ScanLine, Trophy, Gift, User, Package } from "lucide-react";
 
 type NavItem = { to: string; label: string; icon: typeof Home; center?: boolean };
 
-
+// Renamed "/" to "Order" (not "Shop") to avoid the duplicate label that was
+// making the nav bar look cluttered — "/retail" keeps "Shop" since that's
+// the actual retail store section.
 const nav: NavItem[] = [
-  { to: "/",            label: "Shop",    icon: Home },
+  { to: "/",            label: "Order",    icon: Home },
   { to: "/missions",    label: "Missions", icon: ScanLine },
-  { to: "/loyalty",     label: "Card",    icon: User, center: true },
-  { to: "/retail",      label: "Shop",    icon: Package },   // ← add this
-  { to: "/rewards",     label: "Rewards", icon: Gift },
-  { to: "/leaderboard", label: "Ranks",   icon: Trophy },
+  { to: "/loyalty",     label: "Card",     icon: User, center: true },
+  { to: "/retail",      label: "Shop",     icon: Package },
+  { to: "/rewards",     label: "Rewards",  icon: Gift },
+  { to: "/leaderboard", label: "Ranks",    icon: Trophy },
 ];
 
 export function MobileShell({ children }: { children: ReactNode }) {
@@ -23,8 +25,8 @@ export function MobileShell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col pb-28">
       {children}
-      <nav className="fixed inset-x-0 bottom-3 z-50 mx-auto flex max-w-[440px] items-center justify-between px-4">
-        <div className="glass-strong flex w-full items-center justify-between rounded-full px-2 py-2">
+      <nav className="fixed inset-x-0 bottom-3 z-50 mx-auto flex max-w-[440px] items-center justify-center px-4">
+        <div className="glass-strong flex w-full items-center rounded-full px-1 py-2">
           {nav.map((n) => {
             const active = path === n.to;
             const Icon = n.icon;
@@ -33,7 +35,7 @@ export function MobileShell({ children }: { children: ReactNode }) {
                 <Link
                   key={n.to}
                   to={n.to as any}
-                  className="relative -mt-8 grid h-14 w-14 shrink-0 place-items-center rounded-full gradient-ember text-white shadow-ember"
+                  className="relative -mt-8 mx-0.5 grid h-14 w-14 shrink-0 place-items-center rounded-full gradient-ember text-white shadow-ember ring-4 ring-white/60"
                   aria-label={n.label}
                 >
                   <Icon className="h-5 w-5" strokeWidth={2} />
@@ -44,12 +46,12 @@ export function MobileShell({ children }: { children: ReactNode }) {
               <Link
                 key={n.to}
                 to={n.to as any}
-                className={`flex h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-medium transition-colors ${
-                  active ? "text-ink" : "text-muted-foreground"
+                className={`flex h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[9px] font-medium transition-all ${
+                  active ? "bg-mist text-ink" : "text-muted-foreground"
                 }`}
               >
-                <Icon className="h-[18px] w-[18px]" strokeWidth={1.6} />
-                <span className="tracking-wide">{n.label}</span>
+                <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.2 : 1.6} />
+                <span className="whitespace-nowrap tracking-wide">{n.label}</span>
               </Link>
             );
           })}
