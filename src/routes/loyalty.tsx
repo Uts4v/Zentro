@@ -283,7 +283,9 @@ function Loyalty() {
                     filled
                       ? freeRewardReady && isFreeSlot
                         ? "bg-gradient-to-br from-amber-400 to-orange-500 shadow-md"
-                        : "bg-ink"
+                        : stamp.startsWith("http")
+                          ? "border-2 border-border/30 bg-white/90"
+                          : "bg-ink"
                       : "border-2 border-dashed border-border bg-mist/80"
                   }`}
                 >
@@ -291,7 +293,7 @@ function Loyalty() {
                     isFreeSlot && freeRewardReady ? (
                       <Gift className="h-3.5 w-3.5 text-white" />
                     ) : stamp.startsWith("http") ? (
-                      <img src={stamp} alt="" className="h-5 w-5 object-contain" />
+                      <img src={stamp} alt="" className="h-8 w-8 object-contain" />
                     ) : (
                       <span className="text-xs text-white">{stamp}</span>
                     )

@@ -495,15 +495,17 @@ function PunchCardSection({ merchantId }: { merchantId: string }) {
             return (
               <div
                 key={i}
-                className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold transition-all ${
+                className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold transition-all ${
                   i < punches
-                    ? "bg-ink text-white shadow-soft scale-105"
+                    ? stamp.startsWith("http")
+                      ? "border-2 border-border/30 bg-white shadow-soft"
+                      : "bg-ink text-white shadow-soft scale-105"
                     : "border-2 border-dashed border-border bg-white/80 text-muted-foreground/40"
                 }`}
               >
                 {i < punches ? (
                   stamp.startsWith("http") ? (
-                    <img src={stamp} alt="" className="h-4 w-4 object-contain" />
+                    <img src={stamp} alt="" className="h-7 w-7 object-contain" />
                   ) : (
                     stamp
                   )

@@ -557,15 +557,17 @@ function MerchantLoyalty() {
                 return (
                   <div
                     key={i}
-                    className={`grid h-7 w-7 place-items-center rounded-full text-[10px] transition-all ${
+                    className={`grid h-8 w-8 place-items-center rounded-full text-[10px] transition-all ${
                       filled
-                        ? "bg-ink text-white shadow-soft scale-105"
+                        ? previewStamp.startsWith("http")
+                          ? "border-2 border-border/30 bg-white shadow-soft"
+                          : "bg-ink text-white shadow-soft scale-105"
                         : "border-2 border-dashed border-border bg-white/80 text-muted-foreground"
                     }`}
                   >
                     {filled ? (
                       previewStamp.startsWith("http") ? (
-                        <img src={previewStamp} alt="" className="h-4 w-4 object-contain" />
+                        <img src={previewStamp} alt="" className="h-7 w-7 object-contain" />
                       ) : (
                         previewStamp
                       )
