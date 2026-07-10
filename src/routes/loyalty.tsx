@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
 import { customerApi, missionApi, merchantApi, type PunchCard, type MissionView } from "@/lib/api";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { Flame, Sparkles, Gift } from "lucide-react";
+import { Flame, Sparkles, Gift, Loader2 } from "lucide-react";
 import { requireAuth } from "@/lib/auth-guard";
 import { useEffect, useState, useCallback } from "react";
 
@@ -41,6 +41,7 @@ const DEFAULT_PUNCH_CARD: PunchCard = {
   punch_card_bg_color: "#ffffff",
   punch_card_bg_image: null,
   punch_card_stamp_emoji: "✓",
+  punch_card_stamp_mode: "orders",
 };
 
 function Loyalty() {
@@ -114,10 +115,10 @@ function Loyalty() {
     setUsingFreeReward(true);
     setPunchError(null);
     try {
-      await customerApi.useFreeReward(selectedMerchantId);
+      await customerApi.claimFreeReward(selectedMerchantId);
       await loadPunchCard();
     } catch (e: any) {
-      setPunchError(e.message || "Failed to use free reward. Try again.");
+      setPunchError(e.message || "Failed to claim reward. Try again.");
     } finally {
       setUsingFreeReward(false);
     }
@@ -242,10 +243,11 @@ function Loyalty() {
               ) : punchLoading ? (
                 <p className="text-xs text-muted-foreground">Loading…</p>
               ) : freeRewardReady ? (
-                <p className="text-xs font-medium text-emerald-600">Free reward ready! 🎉</p>
+                <p className="text-xs font-medium text-emerald-600">Reward ready to claim</p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  {Math.max(punchesNeeded - punchCount, 0)} more order
+                  {Math.max(punchesNeeded - punchCount, 0)} more{" "}
+                  {punchCard.punch_card_stamp_mode === "streak" ? "visit" : "order"}
                   {punchesNeeded - punchCount !== 1 ? "s" : ""} to unlock
                 </p>
               )}
@@ -279,10 +281,10 @@ function Loyalty() {
               return (
                 <div
                   key={i}
-                  className={`grid aspect-square place-items-center rounded-xl text-sm transition-all duration-300 ${
+                  className={`grid aspect-square place-items-center rounded-lg text-sm transition-all duration-300 overflow-hidden ${
                     filled
                       ? freeRewardReady && isFreeSlot
-                        ? "bg-gradient-to-br from-amber-400 to-orange-500 shadow-md"
+                        ? "gradient-ember shadow-ember animate-pulse-ember"
                         : stamp.startsWith("http")
                           ? "border-2 border-border/30 bg-white/90"
                           : "bg-ink"
@@ -291,14 +293,14 @@ function Loyalty() {
                 >
                   {filled ? (
                     isFreeSlot && freeRewardReady ? (
-                      <Gift className="h-3.5 w-3.5 text-white" />
+                      <Gift className="h-3 w-3 text-white" />
                     ) : stamp.startsWith("http") ? (
-                      <img src={stamp} alt="" className="h-8 w-8 object-contain" />
+                      <img src={stamp} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-xs text-white">{stamp}</span>
+                      <span className="text-[10px] text-white">{stamp}</span>
                     )
                   ) : (
-                    <span className="text-muted-foreground/40">·</span>
+                    <span className="text-muted-foreground/40 text-[10px]">·</span>
                   )}
                 </div>
               );
@@ -310,17 +312,27 @@ function Loyalty() {
           )}
 
           {freeRewardReady && selectedMerchantId ? (
-            <button
-              onClick={handleUseFreeReward}
-              disabled={usingFreeReward}
-              className="mt-4 w-full rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-3 text-sm font-medium text-white transition-transform disabled:opacity-60 active:scale-[0.98]"
-            >
-              {usingFreeReward ? "Redeeming…" : "🎁 Redeem free item with staff"}
-            </button>
+            <div className="mt-4 rounded-2xl p-[1px] bg-gradient-to-r from-emerald-400/60 via-emerald-500 to-emerald-400/60 animate-pulse-ember">
+              <button
+                onClick={handleUseFreeReward}
+                disabled={usingFreeReward}
+                className="w-full rounded-[15px] gradient-ember py-3 text-sm font-semibold text-white tracking-wide transition-all disabled:opacity-60 active:scale-[0.98] hover:brightness-110"
+              >
+                {usingFreeReward ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Claiming…
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    <Gift className="h-4 w-4" /> Claim your reward
+                  </span>
+                )}
+              </button>
+            </div>
           ) : (
             <p className="mt-4 text-center text-xs text-muted-foreground">
               {selectedMerchantId
-                ? `${punchCount} of ${punchesNeeded} orders completed ✨`
+                ? `${punchCount} of ${punchesNeeded} ${punchCard.punch_card_stamp_mode === "streak" ? "visits" : "orders"} completed ✨`
                 : "Select a store then place orders to earn punches ✨"}
             </p>
           )}

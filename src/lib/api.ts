@@ -84,6 +84,7 @@ export interface MerchantProfile {
   punch_card_bg_color?: string;
   punch_card_bg_image?: string | null;
   punch_card_stamp_emoji?: string;
+  punch_card_stamp_mode?: "orders" | "streak";
 }
 
 export interface PunchCard {
@@ -99,6 +100,7 @@ export interface PunchCard {
   punch_card_bg_color?: string;
   punch_card_bg_image?: string | null;
   punch_card_stamp_emoji?: string;
+  punch_card_stamp_mode?: "orders" | "streak";
 }
 
 export interface CustomerProfile {
@@ -355,16 +357,44 @@ export const orderApi = {
         }).throwOnError();
       }
 
-      await (supabase.rpc as any)("increment_punch_card", {
-        p_customer_id: data.customer_id,
-        p_merchant_id: data.merchant_id,
-      }).throwOnError();
+      const { data: merchantProfile } = await supabase
+        .from("merchant_profiles")
+        .select("punch_card_stamp_mode")
+        .eq("id", data.merchant_id)
+        .single();
+
+      const stampMode = merchantProfile?.punch_card_stamp_mode ?? "orders";
+
+      if (stampMode === "orders") {
+        await (supabase.rpc as any)("increment_punch_card", {
+          p_customer_id: data.customer_id,
+          p_merchant_id: data.merchant_id,
+        }).throwOnError();
+      }
 
       await (supabase.rpc as any)("try_increment_streak", {
         p_customer_id: data.customer_id,
         p_merchant_id: data.merchant_id,
         p_order_total: parseFloat(data.total_amount),
       }).throwOnError();
+
+      if (stampMode === "streak") {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("streak, last_streak_at")
+          .eq("id", data.customer_id)
+          .single();
+
+        if (profile?.last_streak_at) {
+          const hoursSinceStreak = (Date.now() - new Date(profile.last_streak_at).getTime()) / 3_600_000;
+          if (hoursSinceStreak < 24) {
+            await (supabase.rpc as any)("increment_punch_card", {
+              p_customer_id: data.customer_id,
+              p_merchant_id: data.merchant_id,
+            }).throwOnError();
+          }
+        }
+      }
     }
 
     return data as Order;
@@ -479,7 +509,7 @@ export const customerApi = {
         .maybeSingle(),
       supabase
         .from("merchant_profiles")
-        .select("punch_card_bg_color, punch_card_bg_image, punch_card_stamp_emoji, punches_to_free")
+        .select("punch_card_bg_color, punch_card_bg_image, punch_card_stamp_emoji, punch_card_stamp_mode, punches_to_free")
         .eq("id", merchantId)
         .single(),
     ]);
@@ -492,6 +522,7 @@ export const customerApi = {
       punch_card_bg_color: merchant?.punch_card_bg_color ?? "#ffffff",
       punch_card_bg_image: merchant?.punch_card_bg_image ?? null,
       punch_card_stamp_emoji: merchant?.punch_card_stamp_emoji ?? "✓",
+      punch_card_stamp_mode: merchant?.punch_card_stamp_mode ?? "orders",
       punches_to_free: merchant?.punches_to_free ?? 5,
     };
 
@@ -524,6 +555,49 @@ export const customerApi = {
       p_customer_id: userId,
       p_merchant_id: merchantId,
     }).throwOnError();
+  },
+
+  claimFreeReward: async (merchantId: string): Promise<void> => {
+    const userId = await getCurrentUserId();
+
+    const { data: merchant, error: mErr } = await supabase
+      .from("merchant_profiles")
+      .select("user_id, store_name")
+      .eq("id", merchantId)
+      .single();
+    if (mErr || !merchant) throw new Error("Merchant not found");
+
+    await (supabase.rpc as any)("use_free_reward", {
+      p_customer_id: userId,
+      p_merchant_id: merchantId,
+    }).throwOnError();
+
+    const { data: order, error: oErr } = await supabase
+      .from("orders")
+      .insert({
+        customer_id: userId,
+        merchant_id: merchantId,
+        status: "pending",
+        total_amount: 0,
+        points_earned: 0,
+        notes: "Punch card reward claimed",
+      })
+      .select()
+      .single();
+    if (oErr || !order) throw new Error(oErr?.message ?? "Failed to create order");
+
+    const { error: nErr } = await supabase
+      .from("notifications")
+      .insert({
+        recipient_id: merchant.user_id,
+        recipient_role: "merchant",
+        type: "punch_card_reward",
+        title: "Punch card reward claimed!",
+        body: `A customer just claimed their punch card reward at ${merchant.store_name}.`,
+        data: { customer_id: userId, merchant_id: merchantId, order_id: order.id },
+        is_read: false,
+      });
+    if (nErr) throw new Error(nErr.message);
   },
 };
 

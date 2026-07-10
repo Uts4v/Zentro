@@ -26,13 +26,13 @@ export function NotificationBell() {
   useEffect(() => {
     loadNotifications();
 
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    const channelRef: { current: ReturnType<typeof supabase.channel> | null } = { current: null };
 
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user || cancelled) return;
 
-      channel = supabase
+      const ch = supabase
         .channel(`notifications:${user.id}`)
         .on(
           "postgres_changes",
@@ -49,10 +49,13 @@ export function NotificationBell() {
           }
         )
         .subscribe();
-    })();
+
+      channelRef.current = ch;
+    });
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      cancelled = true;
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
   }, [loadNotifications]);
 

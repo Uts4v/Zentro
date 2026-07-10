@@ -7,6 +7,7 @@ const ICONS: Record<string, typeof Bell> = {
   new_order: ShoppingBag,
   reward_redeemed: Gift,
   punch_claim: Gift,
+  punch_card_reward: Gift,
   order_status_completed: CheckCircle2,
   order_status_cancelled: XCircle,
   redemption_confirmed: CheckCircle2,
@@ -33,13 +34,13 @@ export function NotificationToastProvider() {
   }, []);
 
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    const channelRef: { current: ReturnType<typeof supabase.channel> | null } = { current: null };
 
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user || cancelled) return;
 
-      channel = supabase
+      const ch = supabase
         .channel(`notifications-toast:${user.id}`)
         .on(
           "postgres_changes",
@@ -59,9 +60,6 @@ export function NotificationToastProvider() {
             const timer = setTimeout(() => dismiss(toastId), 6000);
             timers.current.set(toastId, timer);
 
-            // Optional: play a soft ping sound if you drop a file at
-            // /public/notification.mp3 — safe to leave in even without one,
-            // it just silently fails.
             try {
               const audio = new Audio("/notification.mp3");
               audio.volume = 0.4;
@@ -70,10 +68,13 @@ export function NotificationToastProvider() {
           }
         )
         .subscribe();
-    })();
+
+      channelRef.current = ch;
+    });
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      cancelled = true;
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
       timers.current.forEach((t) => clearTimeout(t));
       timers.current.clear();
     };

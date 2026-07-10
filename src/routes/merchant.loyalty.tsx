@@ -80,13 +80,14 @@ async function getMerchantId(): Promise<string> {
 
 async function getMerchantData(): Promise<{
   id: string; punches_to_free: number;
-  punch_card_bg_color: string; punch_card_bg_image: string | null; punch_card_stamp_emoji: string;
+  punch_card_bg_color: string; punch_card_bg_image: string | null;
+  punch_card_stamp_emoji: string; punch_card_stamp_mode: "orders" | "streak";
 }> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
   const { data, error } = await supabase
     .from("merchant_profiles")
-    .select("id, punches_to_free, punch_card_bg_color, punch_card_bg_image, punch_card_stamp_emoji")
+    .select("id, punches_to_free, punch_card_bg_color, punch_card_bg_image, punch_card_stamp_emoji, punch_card_stamp_mode")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error || !data) throw new Error("Merchant profile not found");
@@ -96,6 +97,7 @@ async function getMerchantData(): Promise<{
     punch_card_bg_color: data.punch_card_bg_color ?? "#ffffff",
     punch_card_bg_image: data.punch_card_bg_image ?? null,
     punch_card_stamp_emoji: data.punch_card_stamp_emoji ?? "✓",
+    punch_card_stamp_mode: data.punch_card_stamp_mode ?? "orders",
   };
 }
 
@@ -121,6 +123,7 @@ function MerchantLoyalty() {
   const [bgColor, setBgColor] = useState("#ffffff");
   const [bgImage, setBgImage] = useState("");
   const [stampEmoji, setStampEmoji] = useState("✓");
+  const [stampMode, setStampMode] = useState<"orders" | "streak">("orders");
 
   // Existing missions/rewards/redeem state
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -146,6 +149,7 @@ function MerchantLoyalty() {
         setBgColor(merchant.punch_card_bg_color);
         setBgImage(merchant.punch_card_bg_image ?? "");
         setStampEmoji(merchant.punch_card_stamp_emoji);
+        setStampMode(merchant.punch_card_stamp_mode);
 
         const [missionsRes, claimsRes] = await Promise.all([
           supabase
@@ -224,6 +228,7 @@ function MerchantLoyalty() {
         punch_card_bg_color: bgColor,
         punch_card_bg_image: bgImage.trim() || null,
         punch_card_stamp_emoji: stampEmoji,
+        punch_card_stamp_mode: stampMode,
       })
       .eq("user_id", user.id)
       .select("id, punches_to_free")
@@ -539,6 +544,33 @@ function MerchantLoyalty() {
                 {punchConfigSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 Save
               </button>
+            </div>
+
+            {/* Stamp mode */}
+            <div className="mt-4 flex items-center gap-4 rounded-2xl bg-mist p-3">
+              <span className="text-xs font-medium text-ink">Stamp earned per:</span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setStampMode("orders")}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
+                    stampMode === "orders"
+                      ? "bg-ink text-white shadow-sm"
+                      : "text-muted-foreground hover:text-ink"
+                  }`}
+                >
+                  Order
+                </button>
+                <button
+                  onClick={() => setStampMode("streak")}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
+                    stampMode === "streak"
+                      ? "bg-ink text-white shadow-sm"
+                      : "text-muted-foreground hover:text-ink"
+                  }`}
+                >
+                  Streak day
+                </button>
+              </div>
             </div>
 
             {/* Visual punch card preview */}

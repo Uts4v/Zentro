@@ -191,6 +191,27 @@
   box-shadow: var(--shadow-ember);
 }
 
+@utility shadow-gold {
+  box-shadow: 0 4px 24px -4px color-mix(in oklab, var(--gold) 40%, transparent),
+    0 1px 3px color-mix(in oklab, var(--gold) 20%, transparent);
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 4px 24px -4px color-mix(in oklab, var(--gold) 35%, transparent); }
+  50% { box-shadow: 0 4px 32px -2px color-mix(in oklab, var(--gold) 55%, transparent); }
+}
+@utility animate-pulse-gold {
+  animation: pulse-gold 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-ember {
+  0%, 100% { box-shadow: 0 4px 24px -4px color-mix(in oklab, var(--ember) 35%, transparent); }
+  50% { box-shadow: 0 4px 32px -2px color-mix(in oklab, var(--ember) 55%, transparent); }
+}
+@utility animate-pulse-ember {
+  animation: pulse-ember 2.4s ease-in-out infinite;
+}
+
 @utility gradient-ember {
   background: var(--gradient-ember);
 }

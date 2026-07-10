@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useStore, cartTotal, type MenuItem } from "@/lib/store";
 import { merchantApi, menuApi, customerApi } from "@/lib/api";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { Plus, ShoppingBag, Flame, Trophy, Stamp, Loader2, Search, X } from "lucide-react";
+import { Plus, ShoppingBag, Flame, Trophy, Stamp, Loader2, Search, X, Gift } from "lucide-react";
 import { requireAuth } from "@/lib/auth-guard";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
@@ -364,6 +364,7 @@ function PunchCardSection({ merchantId }: { merchantId: string }) {
   const [missions, setMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState<string | null>(null);
+  const [claimingFreeReward, setClaimingFreeReward] = useState(false);
   const [claimCard, setClaimCard] = useState<{
     code: string; missionTitle: string; rewardLabel: string;
   } | null>(null);
@@ -426,6 +427,19 @@ function PunchCardSection({ merchantId }: { merchantId: string }) {
     }
   }
 
+  async function claimFreeReward() {
+    setClaimingFreeReward(true);
+    try {
+      await customerApi.claimFreeReward(merchantId);
+      const updated = await customerApi.getPunchCard(merchantId);
+      setPunchCard(updated);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setClaimingFreeReward(false);
+    }
+  }
+
   if (loading) return null;
   if (!punchCard) return null;
 
@@ -474,7 +488,7 @@ function PunchCardSection({ merchantId }: { merchantId: string }) {
             <p className="text-sm font-medium text-ink">Punch Card</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            {punches} / {punchesRequired} punches
+            {punches} / {punchesRequired} {punchCard?.punch_card_stamp_mode === "streak" ? "visits" : "punches"}
           </p>
         </div>
 
@@ -495,7 +509,7 @@ function PunchCardSection({ merchantId }: { merchantId: string }) {
             return (
               <div
                 key={i}
-                className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold transition-all ${
+                className={`grid h-7 w-7 place-items-center rounded-full text-[10px] font-bold transition-all overflow-hidden ${
                   i < punches
                     ? stamp.startsWith("http")
                       ? "border-2 border-border/30 bg-white shadow-soft"
@@ -505,7 +519,7 @@ function PunchCardSection({ merchantId }: { merchantId: string }) {
               >
                 {i < punches ? (
                   stamp.startsWith("http") ? (
-                    <img src={stamp} alt="" className="h-7 w-7 object-contain" />
+                    <img src={stamp} alt="" className="w-full h-full object-cover" />
                   ) : (
                     stamp
                   )
@@ -524,6 +538,27 @@ function PunchCardSection({ merchantId }: { merchantId: string }) {
             style={{ width: `${Math.min(100, (punches / punchesRequired) * 100)}%` }}
           />
         </div>
+
+        {/* Free reward claim */}
+        {punchCard?.free_reward_available && (
+          <div className="mb-4 rounded-2xl p-[1px] bg-gradient-to-r from-emerald-400/60 via-emerald-500 to-emerald-400/60 animate-pulse-ember">
+            <button
+              onClick={claimFreeReward}
+              disabled={claimingFreeReward}
+              className="w-full rounded-[15px] gradient-ember py-3 text-sm font-semibold text-white tracking-wide transition-all disabled:opacity-60 active:scale-[0.98] hover:brightness-110"
+            >
+              {claimingFreeReward ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Claiming…
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2">
+                  <Gift className="h-4 w-4" /> Claim your reward
+                </span>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Missions */}
         {missions.length > 0 && (
