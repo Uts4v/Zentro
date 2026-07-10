@@ -479,19 +479,40 @@ function PunchCardSection({ merchantId }: { merchantId: string }) {
         </div>
 
         {/* Punch dots */}
-        <div className="flex flex-wrap gap-2 mb-5">
-          {Array.from({ length: punchesRequired }).map((_, i) => (
-            <div
-              key={i}
-              className={`grid h-9 w-9 place-items-center rounded-full text-sm font-bold transition-all ${
-                i < punches
-                  ? "bg-ink text-white shadow-soft scale-105"
-                  : "border-2 border-dashed border-border text-muted-foreground/40"
-              }`}
-            >
-              {i < punches ? "✓" : i + 1}
-            </div>
-          ))}
+        <div
+          className="flex flex-wrap gap-1.5 mb-5 rounded-2xl p-3 transition-colors"
+          style={{
+            backgroundColor: punchCard?.punch_card_bg_color || "#ffffff",
+            backgroundImage: punchCard?.punch_card_bg_image
+              ? `url(${punchCard.punch_card_bg_image})`
+              : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          {Array.from({ length: punchesRequired }).map((_, i) => {
+            const stamp = punchCard?.punch_card_stamp_emoji || "✓";
+            return (
+              <div
+                key={i}
+                className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold transition-all ${
+                  i < punches
+                    ? "bg-ink text-white shadow-soft scale-105"
+                    : "border-2 border-dashed border-border bg-white/80 text-muted-foreground/40"
+                }`}
+              >
+                {i < punches ? (
+                  stamp.startsWith("http") ? (
+                    <img src={stamp} alt="" className="h-4 w-4 object-contain" />
+                  ) : (
+                    stamp
+                  )
+                ) : (
+                  i + 1
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Progress bar */}

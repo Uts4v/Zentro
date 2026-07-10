@@ -78,16 +78,25 @@ async function getMerchantId(): Promise<string> {
   return data.id;
 }
 
-async function getMerchantData(): Promise<{ id: string; punches_to_free: number }> {
+async function getMerchantData(): Promise<{
+  id: string; punches_to_free: number;
+  punch_card_bg_color: string; punch_card_bg_image: string | null; punch_card_stamp_emoji: string;
+}> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
   const { data, error } = await supabase
     .from("merchant_profiles")
-    .select("id, punches_to_free")
+    .select("id, punches_to_free, punch_card_bg_color, punch_card_bg_image, punch_card_stamp_emoji")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error || !data) throw new Error("Merchant profile not found");
-  return { id: data.id, punches_to_free: data.punches_to_free ?? 5 };
+  return {
+    id: data.id,
+    punches_to_free: data.punches_to_free ?? 5,
+    punch_card_bg_color: data.punch_card_bg_color ?? "#ffffff",
+    punch_card_bg_image: data.punch_card_bg_image ?? null,
+    punch_card_stamp_emoji: data.punch_card_stamp_emoji ?? "✓",
+  };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -107,6 +116,11 @@ function MerchantLoyalty() {
   const [confirmingClaim, setConfirmingClaim] = useState<string | null>(null);
   const [claimResult, setClaimResult] = useState<RedeemResult | null>(null);
   const [punchError, setPunchError] = useState("");
+
+  // Punch card customization
+  const [bgColor, setBgColor] = useState("#ffffff");
+  const [bgImage, setBgImage] = useState("");
+  const [stampEmoji, setStampEmoji] = useState("✓");
 
   // Existing missions/rewards/redeem state
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -129,6 +143,9 @@ function MerchantLoyalty() {
       try {
         const merchant = await getMerchantData();
         setPunchesConfig(merchant.punches_to_free);
+        setBgColor(merchant.punch_card_bg_color);
+        setBgImage(merchant.punch_card_bg_image ?? "");
+        setStampEmoji(merchant.punch_card_stamp_emoji);
 
         const [missionsRes, claimsRes] = await Promise.all([
           supabase
@@ -202,8 +219,13 @@ function MerchantLoyalty() {
 
     const { data, error } = await supabase
       .from("merchant_profiles")
-      .update({ punches_to_free: punchesConfig })
-      .eq("user_id", user.id)  // use user_id directly — more reliable
+      .update({
+        punches_to_free: punchesConfig,
+        punch_card_bg_color: bgColor,
+        punch_card_bg_image: bgImage.trim() || null,
+        punch_card_stamp_emoji: stampEmoji,
+      })
+      .eq("user_id", user.id)
       .select("id, punches_to_free")
       .single();
 
@@ -520,15 +542,103 @@ function MerchantLoyalty() {
             </div>
 
             {/* Visual punch card preview */}
-            <div className="mt-5 flex flex-wrap gap-2">
-              {Array.from({ length: punchesConfig }).map((_, i) => (
-                <div
-                  key={i}
-                  className="grid h-9 w-9 place-items-center rounded-full border-2 border-dashed border-border bg-mist text-xs text-muted-foreground"
-                >
-                  {i + 1}
+            <div
+              className="mt-5 flex flex-wrap gap-2 rounded-2xl p-4 transition-colors"
+              style={{
+                backgroundColor: bgColor || "#ffffff",
+                backgroundImage: bgImage ? `url(${bgImage})` : undefined,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            >
+              {Array.from({ length: punchesConfig }).map((_, i) => {
+                const filled = i < Math.min(2, punchesConfig);
+                const previewStamp = stampEmoji || "✓";
+                return (
+                  <div
+                    key={i}
+                    className={`grid h-7 w-7 place-items-center rounded-full text-[10px] transition-all ${
+                      filled
+                        ? "bg-ink text-white shadow-soft scale-105"
+                        : "border-2 border-dashed border-border bg-white/80 text-muted-foreground"
+                    }`}
+                  >
+                    {filled ? (
+                      previewStamp.startsWith("http") ? (
+                        <img src={previewStamp} alt="" className="h-4 w-4 object-contain" />
+                      ) : (
+                        previewStamp
+                      )
+                    ) : (
+                      i + 1
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Punch card customization */}
+          <div className="glass-strong rounded-3xl p-6">
+            <div className="mb-4">
+              <h2 className="font-display text-xl text-ink">Punch Card Appearance</h2>
+              <p className="text-xs text-muted-foreground">Customise the background and stamp style.</p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Background color */}
+              <div className="space-y-2">
+                <label className="text-[11px] uppercase tracking-widest text-muted-foreground">Background colour</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={bgColor}
+                    onChange={(e) => setBgColor(e.target.value)}
+                    className="h-10 w-10 cursor-pointer rounded-xl border border-border bg-transparent p-0.5"
+                  />
+                  <div className="flex gap-1.5">
+                    {["#ffffff", "#fef3c7", "#dbeafe", "#fce7f3", "#d1fae5", "#f3e8ff", "#fee2e2", "#e0f2fe"].map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setBgColor(c)}
+                        className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                          bgColor === c ? "border-ink scale-110" : "border-transparent"
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Background image URL */}
+              <FieldLabel label="Background image URL">
+                <input
+                  value={bgImage}
+                  onChange={(e) => setBgImage(e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                  className={inputCls}
+                />
+              </FieldLabel>
+
+              {/* Stamp emoji / GIF */}
+              <FieldLabel label="Stamp emoji or GIF URL">
+                <div className="flex gap-2">
+                  <input
+                    value={stampEmoji}
+                    onChange={(e) => setStampEmoji(e.target.value)}
+                    placeholder="⭐ or https://example.com/stamp.gif"
+                    className={inputCls}
+                  />
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border bg-mist text-lg">
+                    {stampEmoji.startsWith("http") ? (
+                      <img src={stampEmoji} alt="stamp" className="h-6 w-6 object-contain" />
+                    ) : (
+                      stampEmoji || "✓"
+                    )}
+                  </div>
+                </div>
+              </FieldLabel>
             </div>
           </div>
 

@@ -80,6 +80,10 @@ export interface MerchantProfile {
   description: string | null;
   is_approved: boolean;
   is_open: boolean;
+  punches_to_free?: number;
+  punch_card_bg_color?: string;
+  punch_card_bg_image?: string | null;
+  punch_card_stamp_emoji?: string;
 }
 
 export interface PunchCard {
@@ -92,6 +96,9 @@ export interface PunchCard {
   free_reward_available: boolean;
   created_at: string;
   updated_at: string;
+  punch_card_bg_color?: string;
+  punch_card_bg_image?: string | null;
+  punch_card_stamp_emoji?: string;
 }
 
 export interface CustomerProfile {
@@ -463,22 +470,51 @@ export const customerApi = {
   getPunchCard: async (merchantId: string): Promise<PunchCard | null> => {
     const userId = await getCurrentUserId();
 
-    const { data, error } = await supabase
-      .from("punch_cards")
-      .select("*")
-      .eq("customer_id", userId)
-      .eq("merchant_id", merchantId)
-      .maybeSingle();
+    const [cardResult, merchantResult] = await Promise.all([
+      supabase
+        .from("punch_cards")
+        .select("*")
+        .eq("customer_id", userId)
+        .eq("merchant_id", merchantId)
+        .maybeSingle(),
+      supabase
+        .from("merchant_profiles")
+        .select("punch_card_bg_color, punch_card_bg_image, punch_card_stamp_emoji, punches_to_free")
+        .eq("id", merchantId)
+        .single(),
+    ]);
 
-    if (error) throw new Error(error.message);
-    if (!data) return null;
+    if (cardResult.error) throw new Error(cardResult.error.message);
+    if (merchantResult.error) throw new Error(merchantResult.error.message);
+
+    const merchant = merchantResult.data;
+    const punchDefaults = {
+      punch_card_bg_color: merchant?.punch_card_bg_color ?? "#ffffff",
+      punch_card_bg_image: merchant?.punch_card_bg_image ?? null,
+      punch_card_stamp_emoji: merchant?.punch_card_stamp_emoji ?? "✓",
+      punches_to_free: merchant?.punches_to_free ?? 5,
+    };
+
+    if (!cardResult.data) {
+      return {
+        id: "",
+        customer_id: userId,
+        merchant_id: merchantId,
+        punch_count: 0,
+        lifetime_punches: 0,
+        free_reward_available: false,
+        created_at: "",
+        updated_at: "",
+        ...punchDefaults,
+      };
+    }
 
     return {
-      ...data,
-      punch_count: data.punch_count ?? 0,
-      lifetime_punches: data.lifetime_punches ?? 0,
-      punches_to_free: data.punches_to_free ?? 5,
-      free_reward_available: data.free_reward_available ?? false,
+      ...cardResult.data,
+      punch_count: cardResult.data.punch_count ?? 0,
+      lifetime_punches: cardResult.data.lifetime_punches ?? 0,
+      free_reward_available: cardResult.data.free_reward_available ?? false,
+      ...punchDefaults,
     } as PunchCard;
   },
 

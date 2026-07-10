@@ -38,6 +38,9 @@ const DEFAULT_PUNCH_CARD: PunchCard = {
   free_reward_available: false,
   created_at: "",
   updated_at: "",
+  punch_card_bg_color: "#ffffff",
+  punch_card_bg_image: null,
+  punch_card_stamp_emoji: "✓",
 };
 
 function Loyalty() {
@@ -90,14 +93,8 @@ function Loyalty() {
     try {
       const data = await customerApi.getPunchCard(selectedMerchantId);
       if (data) {
-        setPunchCard({
-          ...data,
-          punch_count: data.punch_count ?? 0,
-          punches_to_free: data.punches_to_free ?? 5,
-          free_reward_available: data.free_reward_available ?? false,
-        });
+        setPunchCard(data);
       } else {
-        // No row yet — customer hasn't ordered from this merchant yet
         setPunchCard({ ...DEFAULT_PUNCH_CARD, merchant_id: selectedMerchantId });
       }
     } catch (e: any) {
@@ -264,28 +261,39 @@ function Loyalty() {
 
           {/* Punch dots */}
           <div
-            className="mt-4 grid gap-2"
-            style={{ gridTemplateColumns: `repeat(${punchesNeeded}, 1fr)` }}
+            className="mt-4 grid gap-1.5 rounded-2xl p-3 transition-colors"
+            style={{
+              backgroundColor: punchCard.punch_card_bg_color || "#ffffff",
+              backgroundImage: punchCard.punch_card_bg_image
+                ? `url(${punchCard.punch_card_bg_image})`
+                : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              gridTemplateColumns: `repeat(${punchesNeeded}, 1fr)`,
+            }}
           >
             {Array.from({ length: punchesNeeded }).map((_, i) => {
               const filled = i < punchCount;
               const isFreeSlot = i === punchesNeeded - 1;
+              const stamp = punchCard.punch_card_stamp_emoji || "✓";
               return (
                 <div
                   key={i}
-                  className={`grid aspect-square place-items-center rounded-2xl text-lg transition-all duration-300 ${
+                  className={`grid aspect-square place-items-center rounded-xl text-sm transition-all duration-300 ${
                     filled
                       ? freeRewardReady && isFreeSlot
                         ? "bg-gradient-to-br from-amber-400 to-orange-500 shadow-md"
                         : "bg-ink"
-                      : "border-2 border-dashed border-border bg-mist"
+                      : "border-2 border-dashed border-border bg-mist/80"
                   }`}
                 >
                   {filled ? (
                     isFreeSlot && freeRewardReady ? (
-                      <Gift className="h-4 w-4 text-white" />
+                      <Gift className="h-3.5 w-3.5 text-white" />
+                    ) : stamp.startsWith("http") ? (
+                      <img src={stamp} alt="" className="h-5 w-5 object-contain" />
                     ) : (
-                      <span className="text-sm text-white">✓</span>
+                      <span className="text-xs text-white">{stamp}</span>
                     )
                   ) : (
                     <span className="text-muted-foreground/40">·</span>
