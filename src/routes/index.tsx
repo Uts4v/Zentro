@@ -93,10 +93,8 @@ function Index() {
 
       try {
         const list = await merchantApi.list();
-        console.log("[index] merchant list:", list);
 
         const available = list.filter((m) => m.is_open);
-        console.log("[index] available merchants:", available);
 
         let merchantId = selectedMerchantId;
 

@@ -337,6 +337,23 @@ export const orderApi = {
     const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
     if (itemsErr) throw new Error(itemsErr.message);
 
+    const { data: merchant, error: merchantErr } = await supabase
+      .from("merchant_profiles")
+      .select("user_id, store_name")
+      .eq("id", payload.merchant_id)
+      .single();
+    if (!merchantErr && merchant) {
+      await supabase.from("notifications").insert({
+        recipient_id: merchant.user_id,
+        recipient_role: "merchant",
+        type: "new_order",
+        title: "New Order!",
+        body: `A new order has been placed at ${merchant.store_name}.`,
+        data: { customer_id: userId, merchant_id: payload.merchant_id, order_id: order.id },
+        is_read: false,
+      });
+    }
+
     return { ...order, order_items: orderItems } as Order;
   },
 
