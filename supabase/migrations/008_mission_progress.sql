@@ -1,8 +1,5 @@
 -- Migration 008: Create advance_mission_progress RPC
--- Called when an order is confirmed to update mission progress and award reward points
-
--- First ensure the missions and customer_missions tables exist
--- (they may have been created manually; these are safe no-ops if they already exist)
+-- Compatible with manually-created missions table (no mission_type dependency)
 
 CREATE TABLE IF NOT EXISTS public.missions (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -12,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.missions (
   icon        text DEFAULT '🎯',
   target_count integer NOT NULL DEFAULT 5,
   reward_points integer NOT NULL DEFAULT 50,
-  mission_type text NOT NULL DEFAULT 'order_count' CHECK (mission_type IN ('order_count', 'spend_amount', 'visit_streak')),
+  mission_type text NOT NULL DEFAULT 'order_count',
   is_active   boolean NOT NULL DEFAULT true,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
@@ -27,11 +24,9 @@ CREATE TABLE IF NOT EXISTS public.customer_missions (
   UNIQUE(customer_id, mission_id)
 );
 
--- Enable RLS
 ALTER TABLE public.missions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customer_missions ENABLE ROW LEVEL SECURITY;
 
--- Missions: anyone authenticated can read, merchants manage their own
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Missions readable by authenticated' AND tablename = 'missions') THEN
     CREATE POLICY "Missions readable by authenticated" ON public.missions FOR SELECT TO authenticated USING (true);
@@ -46,7 +41,6 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Customer missions: customers read their own, merchants read their customers'
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Customers read own missions' AND tablename = 'customer_missions') THEN
     CREATE POLICY "Customers read own missions" ON public.customer_missions FOR SELECT TO authenticated
@@ -60,7 +54,6 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Allow authenticated users to insert/update their own customer_missions (needed for SECURITY DEFINER RPC from browser)
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Customers insert own missions' AND tablename = 'customer_missions') THEN
     CREATE POLICY "Customers insert own missions" ON public.customer_missions FOR INSERT TO authenticated
@@ -75,7 +68,6 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Drop and recreate the function
 DROP FUNCTION IF EXISTS public.advance_mission_progress(UUID, UUID, NUMERIC);
 
 CREATE OR REPLACE FUNCTION public.advance_mission_progress(
@@ -96,37 +88,30 @@ DECLARE
   v_result text := '';
   v_awarded_total integer := 0;
 BEGIN
+  IF p_customer_id IS NULL THEN
+    RETURN 'ERROR: customer_id is null';
+  END IF;
+
   FOR v_mission IN
-    SELECT id, target_count, reward_points, mission_type, title
+    SELECT id, target_count, reward_points, title
     FROM missions
     WHERE merchant_id = p_merchant_id
       AND is_active = true
   LOOP
     v_should_award := false;
 
-    -- Get existing progress
     SELECT id, current_count, is_completed
     INTO v_progress
     FROM customer_missions
     WHERE customer_id = p_customer_id
       AND mission_id = v_mission.id;
 
-    -- Calculate new count based on mission type
-    IF v_mission.mission_type = 'spend_amount' THEN
-      v_new_count := COALESCE(v_progress.current_count, 0) + p_order_total;
-    ELSE
-      v_new_count := COALESCE(v_progress.current_count, 0) + 1;
-    END IF;
+    v_new_count := COALESCE(v_progress.current_count, 0) + 1;
 
     IF v_progress IS NULL THEN
       INSERT INTO customer_missions (customer_id, mission_id, current_count, is_completed)
-      VALUES (
-        p_customer_id,
-        v_mission.id,
-        v_new_count,
-        v_new_count >= v_mission.target_count
-      );
-      v_result := v_result || format('Created progress for "%s": %s/%s', v_mission.title, v_new_count, v_mission.target_count);
+      VALUES (p_customer_id, v_mission.id, v_new_count, v_new_count >= v_mission.target_count);
+      v_result := v_result || format('Created "%s": %s/%s', v_mission.title, v_new_count, v_mission.target_count);
       IF v_new_count >= v_mission.target_count THEN
         v_should_award := true;
       END IF;
@@ -135,12 +120,12 @@ BEGIN
       SET current_count = v_new_count,
           is_completed = v_new_count >= v_mission.target_count
       WHERE id = v_progress.id;
-      v_result := v_result || format('Updated progress for "%s": %s/%s', v_mission.title, v_new_count, v_mission.target_count);
+      v_result := v_result || format('Updated "%s": %s/%s', v_mission.title, v_new_count, v_mission.target_count);
       IF v_new_count >= v_mission.target_count THEN
         v_should_award := true;
       END IF;
     ELSE
-      v_result := v_result || format('Mission "%s" already completed, skipped.', v_mission.title);
+      v_result := v_result || format('"%s" already completed', v_mission.title);
     END IF;
 
     IF v_should_award THEN
@@ -148,17 +133,18 @@ BEGIN
       SET points = points + v_mission.reward_points
       WHERE id = p_customer_id;
       v_awarded_total := v_awarded_total + v_mission.reward_points;
-      v_result := v_result || format(' AWARDED %s pts.', v_mission.reward_points);
+      v_result := v_result || format(' -> AWARDED %s pts', v_mission.reward_points);
     END IF;
 
     v_result := v_result || E'\n';
   END LOOP;
 
+  IF v_result = '' THEN
+    v_result := 'No active missions for this merchant.';
+  END IF;
+
   IF v_awarded_total > 0 THEN
     v_result := v_result || format('TOTAL AWARDED: %s pts', v_awarded_total);
-  ELSE IF v_result = '' THEN
-    v_result := 'No active missions found for this merchant.';
-  END IF;
   END IF;
 
   RETURN v_result;
