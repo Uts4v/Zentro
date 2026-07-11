@@ -441,6 +441,7 @@ export const orderApi = {
     if (error) throw new Error(error.message);
 
     if (status === "confirmed") {
+      console.warn("[ORDER] Order confirmed, starting post-order flows for order", id);
       if (data.points_earned > 0) {
         try {
           await (supabase.rpc as any)("increment_points", {
@@ -504,6 +505,7 @@ export const orderApi = {
       }
 
       // Advance mission progress + award reward points on completion
+      console.warn("[MISSION] Calling advance_mission_progress for order", id, "customer:", data.customer_id, "merchant:", data.merchant_id);
       try {
         const { data: missionResult, error: missionErr } = await supabase.rpc("advance_mission_progress", {
           p_customer_id: data.customer_id,
@@ -511,12 +513,12 @@ export const orderApi = {
           p_order_total: parseFloat(data.total_amount),
         });
         if (missionErr) {
-          console.error("Mission progress error:", missionErr.message);
+          console.error("[MISSION] RPC error:", missionErr);
         } else {
-          console.log("Mission progress result:", missionResult);
+          console.warn("[MISSION] Result:", missionResult);
         }
       } catch (e) {
-        console.error("Mission progress exception:", e);
+        console.error("[MISSION] Exception:", e);
       }
     }
 
