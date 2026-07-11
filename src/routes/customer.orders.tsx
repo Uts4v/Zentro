@@ -1,7 +1,7 @@
 // routes/customer/orders.tsx
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Loader2, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp, X, UtensilsCrossed } from "lucide-react";
 import { orderApi, type Order, type OrderStatus } from "@/lib/api";
 
 export const Route = createFileRoute("/customer/orders")({
@@ -176,6 +176,12 @@ function OrderRow({
             )}
           </div>
           <p className="font-display mt-1 text-lg text-ink">{order.merchant_name}</p>
+          {order.order_type === "dine_in" && order.table_name_snapshot && (
+            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-amber-700">
+              <UtensilsCrossed className="h-3 w-3" />
+              Dine-in · {order.table_name_snapshot}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">{date}</p>
         </div>
         <div className="text-right">

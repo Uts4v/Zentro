@@ -1,7 +1,7 @@
 // src/routes/merchant/store.tsx
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, Clock, Loader2, Save, Check, X, ImageIcon, Upload } from "lucide-react";
+import { MapPin, Clock, Loader2, Save, Check, X, ImageIcon, Upload, QrCode } from "lucide-react";
 import { merchantApi, type MerchantProfile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { optimizeImage } from "@/lib/image-optimize";
@@ -208,6 +208,10 @@ function StoreConfig() {
     logo_url: "",
     banner_url: "",
     is_open: true,
+    table_ordering_enabled: false,
+    allow_pickup: true,
+    allow_delivery: false,
+    allow_dine_in: false,
   });
 
   const fetchProfile = useCallback(async () => {
@@ -225,6 +229,10 @@ function StoreConfig() {
         logo_url: data.logo_url || "",
         banner_url: data.banner_url || "",
         is_open: data.is_open ?? true,
+        table_ordering_enabled: data.table_ordering_enabled ?? false,
+        allow_pickup: data.allow_pickup ?? true,
+        allow_delivery: data.allow_delivery ?? false,
+        allow_dine_in: data.allow_dine_in ?? false,
       });
     } catch (err) {
       setError("Could not load your store profile. Make sure you're logged in as a merchant.");
@@ -251,6 +259,10 @@ function StoreConfig() {
         logo_url: updated.logo_url || "",
         banner_url: updated.banner_url || "",
         is_open: updated.is_open ?? true,
+        table_ordering_enabled: updated.table_ordering_enabled ?? false,
+        allow_pickup: updated.allow_pickup ?? true,
+        allow_delivery: updated.allow_delivery ?? false,
+        allow_dine_in: updated.allow_dine_in ?? false,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -358,6 +370,72 @@ function StoreConfig() {
             </p>
           </div>
         )}
+      </section>
+
+      {/* ── Ordering options ── */}
+      <section className="glass-strong rounded-3xl p-6">
+        <div className="flex items-center gap-2">
+          <QrCode className="h-5 w-5 text-ember" />
+          <h2 className="font-display text-2xl text-ink">Ordering</h2>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Control how customers can place orders at your store.
+        </p>
+
+        <div className="mt-5 space-y-4">
+          {/* Table ordering master toggle */}
+          <div className="flex items-center justify-between rounded-2xl bg-mist p-4">
+            <div>
+              <p className="text-sm font-medium text-ink">Enable table ordering</p>
+              <p className="text-xs text-muted-foreground">
+                Let customers scan QR codes at their tables to order
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const next = !form.table_ordering_enabled;
+                updateField("table_ordering_enabled", next);
+                if (next) updateField("allow_dine_in", true);
+              }}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                form.table_ordering_enabled ? "bg-ember" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                  form.table_ordering_enabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Order types */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { key: "allow_pickup", label: "Pickup", desc: "Customer collects" },
+              { key: "allow_dine_in", label: "Dine-in", desc: "Table ordering" },
+              { key: "allow_delivery", label: "Delivery", desc: "Send to address" },
+            ].map(({ key, label, desc }) => (
+              <button
+                key={key}
+                onClick={() => updateField(key, !form[key as keyof typeof form])}
+                className={`rounded-2xl border-2 p-3 text-left transition-all ${
+                  form[key as keyof typeof form]
+                    ? "border-ink bg-ink/5"
+                    : "border-border bg-white"
+                }`}
+              >
+                <p className="text-sm font-medium text-ink">{label}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{desc}</p>
+                {key === "allow_dine_in" && form.table_ordering_enabled && (
+                  <span className="mt-1 inline-block rounded-full bg-ember-soft px-2 py-0.5 text-[10px] font-medium text-ember">
+                    Requires tables
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ── Live preview card ── */}

@@ -48,6 +48,9 @@ export interface Order {
   total_amount: string;
   points_earned: number;
   notes: string;
+  order_type?: "dine_in" | "pickup" | "delivery";
+  table_id?: string | null;
+  table_name_snapshot?: string;
   created_at: string;
   updated_at: string;
   order_items: OrderItem[];
@@ -65,6 +68,8 @@ export interface CreateOrderPayload {
     points_per_item: number;
   }[];
   notes?: string;
+  order_type?: "dine_in" | "pickup" | "delivery";
+  table_token?: string;
 }
 
 export interface MerchantProfile {
@@ -85,6 +90,21 @@ export interface MerchantProfile {
   punch_card_bg_image?: string | null;
   punch_card_stamp_emoji?: string;
   punch_card_stamp_mode?: "orders" | "streak";
+  table_ordering_enabled?: boolean;
+  allow_pickup?: boolean;
+  allow_delivery?: boolean;
+  allow_dine_in?: boolean;
+}
+
+export interface MerchantTable {
+  id: string;
+  merchant_id: string;
+  name: string;
+  table_number: number;
+  public_token: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PunchCard {
@@ -306,6 +326,59 @@ export const orderApi = {
 
   create: async (payload: CreateOrderPayload): Promise<Order> => {
     const userId = await getCurrentUserId();
+
+    // Dine-in orders go through the secure RPC
+    if (payload.order_type === "dine_in" && payload.table_token) {
+      const itemsJson = payload.items.map((i) => ({
+        menu_item_id: i.menu_item_id,
+        quantity: i.quantity,
+        name: i.name,
+        price: i.price,
+        points_per_item: i.points_per_item ?? 0,
+      }));
+
+      const { data: orderId, error: rpcErr } = await supabase.rpc(
+        "create_dine_in_order",
+        {
+          p_customer_id: userId,
+          p_merchant_id: payload.merchant_id,
+          p_table_token: payload.table_token,
+          p_items: itemsJson,
+          p_notes: payload.notes ?? "",
+        }
+      );
+      if (rpcErr || !orderId) throw new Error(rpcErr?.message ?? "Failed to create dine-in order");
+
+      // Fetch the full order with items
+      const { data: order, error: fetchErr } = await supabase
+        .from("orders")
+        .select("*, order_items(*), profiles(full_name), merchant_profiles(store_name)")
+        .eq("id", orderId)
+        .single();
+      if (fetchErr || !order) throw new Error(fetchErr?.message ?? "Failed to fetch order");
+
+      // Notify merchant
+      const { data: merchant } = await supabase
+        .from("merchant_profiles")
+        .select("user_id, store_name")
+        .eq("id", payload.merchant_id)
+        .single();
+      if (merchant) {
+        await supabase.from("notifications").insert({
+          recipient_id: merchant.user_id,
+          recipient_role: "merchant",
+          type: "new_order",
+          title: "New Dine-in Order!",
+          body: `Table order placed at ${merchant.store_name}.`,
+          data: { customer_id: userId, merchant_id: payload.merchant_id, order_id: orderId },
+          is_read: false,
+        });
+      }
+
+      return order as Order;
+    }
+
+    // Standard pickup/delivery order
     const total = payload.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const pointsEarned = payload.items.reduce(
       (sum, i) => sum + (i.points_per_item ?? 0) * i.quantity,
@@ -321,6 +394,7 @@ export const orderApi = {
         total_amount: total,
         points_earned: pointsEarned,
         notes: payload.notes ?? "",
+        order_type: payload.order_type ?? "pickup",
       })
       .select()
       .single();
@@ -985,6 +1059,149 @@ export const notificationApi = {
       .eq("recipient_id", userId)
       .eq("is_read", false);
     if (error) throw new Error(error.message);
+  },
+};
+
+// ── Tables ───────────────────────────────────────────────────────────────────
+
+export const tableApi = {
+  list: async (): Promise<MerchantTable[]> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+    const { data, error } = await supabase
+      .from("merchant_tables")
+      .select("*")
+      .eq("merchant_id", merchant.id)
+      .order("table_number");
+    if (error) throw new Error(error.message);
+    return (data ?? []) as MerchantTable[];
+  },
+
+  create: async (name: string, table_number: number): Promise<MerchantTable> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+    const { data, error } = await supabase
+      .from("merchant_tables")
+      .insert({ merchant_id: merchant.id, name, table_number })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as MerchantTable;
+  },
+
+  bulkGenerate: async (count: number, prefix: string): Promise<MerchantTable[]> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+
+    // Get existing table numbers
+    const { data: existing } = await supabase
+      .from("merchant_tables")
+      .select("table_number")
+      .eq("merchant_id", merchant.id);
+    const existingNumbers = new Set((existing ?? []).map((t) => t.table_number));
+
+    const rows: { merchant_id: string; name: string; table_number: number }[] = [];
+    let nextNum = 1;
+    for (let i = 0; i < count && rows.length < count; i++) {
+      while (existingNumbers.has(nextNum)) nextNum++;
+      rows.push({ merchant_id: merchant.id, name: `${prefix} ${nextNum}`, table_number: nextNum });
+      existingNumbers.add(nextNum);
+      nextNum++;
+    }
+
+    if (rows.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from("merchant_tables")
+      .insert(rows)
+      .select();
+    if (error) throw new Error(error.message);
+    return (data ?? []) as MerchantTable[];
+  },
+
+  update: async (id: string, name: string): Promise<MerchantTable> => {
+    const { data, error } = await supabase
+      .from("merchant_tables")
+      .update({ name })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as MerchantTable;
+  },
+
+  setActive: async (id: string, is_active: boolean): Promise<MerchantTable> => {
+    const { data, error } = await supabase
+      .from("merchant_tables")
+      .update({ is_active })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as MerchantTable;
+  },
+
+  regenerateToken: async (id: string): Promise<MerchantTable> => {
+    // The default value on the column handles token generation via SQL
+    const newToken = "TBL-" + upper(btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(8)))).slice(0, 8).toUpperCase());
+    const { data, error } = await supabase
+      .from("merchant_tables")
+      .update({ public_token: newToken })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as MerchantTable;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const { error } = await supabase.from("merchant_tables").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+};
+
+function upper(s: string): string {
+  return s.toUpperCase();
+}
+
+export const publicTableApi = {
+  resolve: async (
+    merchantSlug: string,
+    tableToken: string
+  ): Promise<{
+    merchant: Pick<MerchantProfile, "id" | "store_name" | "store_slug" | "logo_url">;
+    table: Pick<MerchantTable, "id" | "name" | "table_number" | "public_token">;
+  }> => {
+    // 1. Find merchant by slug
+    const { data: merchant, error: mErr } = await supabase
+      .from("merchant_profiles")
+      .select("id, store_name, store_slug, logo_url, is_approved, is_open, table_ordering_enabled")
+      .eq("store_slug", merchantSlug)
+      .maybeSingle();
+    if (mErr || !merchant) throw new Error("Merchant not found");
+    if (!merchant.is_approved) throw new Error("Merchant is not approved");
+    if (!merchant.is_open) throw new Error("Merchant is currently closed");
+    if (!merchant.table_ordering_enabled) throw new Error("Table ordering is not enabled");
+
+    // 2. Find table by token + merchant
+    const { data: table, error: tErr } = await supabase
+      .from("merchant_tables")
+      .select("id, name, table_number, public_token")
+      .eq("public_token", tableToken)
+      .eq("merchant_id", merchant.id)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (tErr || !table) throw new Error("Invalid or inactive table");
+
+    return {
+      merchant: {
+        id: merchant.id,
+        store_name: merchant.store_name,
+        store_slug: merchant.store_slug,
+        logo_url: merchant.logo_url,
+      },
+      table,
+    };
   },
 };
 // ── Retail ────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { type OrderStatus } from "@/lib/store";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2, UtensilsCrossed } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { requireAuth } from "@/lib/auth-guard";
 import { orderApi, type Order } from "@/lib/api";
@@ -150,6 +150,14 @@ function OrderPage() {
         </h1>
         {merchantName && (
           <p className="mt-1 text-sm text-muted-foreground">from {merchantName}</p>
+        )}
+
+        {/* Table info for dine-in */}
+        {order.order_type === "dine_in" && order.table_name_snapshot && (
+          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800">
+            <UtensilsCrossed className="h-3.5 w-3.5" />
+            Dine-in · {order.table_name_snapshot}
+          </div>
         )}
 
         {/* Live status message */}

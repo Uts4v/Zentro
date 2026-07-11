@@ -38,6 +38,14 @@ export type Order = {
   notes?: string;
 };
 
+export type TableOrderContext = {
+  merchantSlug: string;
+  tableToken: string;
+  tableId: string;
+  tableName: string;
+  scannedAt: number;
+};
+
 type State = {
   cart: CartItem[];
   orders: Order[];
@@ -45,6 +53,7 @@ type State = {
   streak: number;
   customerName: string;
   selectedMerchantId: string | null;
+  tableContext: TableOrderContext | null;
   setSelectedMerchant: (id: string | null) => void;
   add: (id: string) => void;
   remove: (id: string) => void;
@@ -55,7 +64,29 @@ type State = {
   setPoints: (pts: number) => void;
   setStreak: (s: number) => void;
   setCustomerName: (name: string) => void;
+  setTableContext: (ctx: TableOrderContext | null) => void;
+  clearTableContext: () => void;
 };
+
+function readSessionTableContext(merchantSlug: string): TableOrderContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(`zentro_table_${merchantSlug}`);
+    if (!raw) return null;
+    return JSON.parse(raw) as TableOrderContext;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionTableContext(merchantSlug: string, ctx: TableOrderContext | null) {
+  if (typeof window === "undefined") return;
+  if (ctx) {
+    sessionStorage.setItem(`zentro_table_${merchantSlug}`, JSON.stringify(ctx));
+  } else {
+    sessionStorage.removeItem(`zentro_table_${merchantSlug}`);
+  }
+}
 
 export const useStore = create<State>()(
   persist(
@@ -66,6 +97,7 @@ export const useStore = create<State>()(
       streak: 0,
       customerName: "",
       selectedMerchantId: null,
+      tableContext: null,
 
       setSelectedMerchant: (id) => set({ selectedMerchantId: id }),
 
@@ -88,7 +120,7 @@ export const useStore = create<State>()(
       clearCart: () => set({ cart: [] }),
 
       placeOrder: async (menuItems: MenuItem[], notes = "") => {
-        const { cart, selectedMerchantId } = get();
+        const { cart, selectedMerchantId, tableContext } = get();
         if (!selectedMerchantId) throw new Error("No merchant selected");
         if (cart.length === 0) throw new Error("Cart is empty");
 
@@ -100,7 +132,7 @@ export const useStore = create<State>()(
     quantity: c.qty,
     name: item.name,
     price: item.price,
-    points_per_item: item.points_per_item ?? 0, // ← add this
+    points_per_item: item.points_per_item ?? 0,
   };
 });
 
@@ -108,6 +140,8 @@ export const useStore = create<State>()(
           merchant_id: selectedMerchantId,
           items,
           notes,
+          order_type: tableContext ? "dine_in" : "pickup",
+          table_token: tableContext?.tableToken,
         });
 
         const order: Order = {
@@ -126,8 +160,6 @@ export const useStore = create<State>()(
         set((s) => ({
           orders: [order, ...s.orders],
           cart: [],
-          // FIX: removed selectedMerchantId: null — keep merchant selected
-          // so the loyalty page can immediately load the punch card
         }));
 
         return order.id;
@@ -142,6 +174,21 @@ export const useStore = create<State>()(
       setPoints: (pts) => set({ points: pts }),
       setStreak: (s) => set({ streak: s }),
       setCustomerName: (name) => set({ customerName: name }),
+
+      setTableContext: (ctx) => {
+        set({ tableContext: ctx });
+        if (ctx) {
+          writeSessionTableContext(ctx.merchantSlug, ctx);
+        }
+      },
+
+      clearTableContext: () => {
+        const { tableContext } = get();
+        if (tableContext) {
+          writeSessionTableContext(tableContext.merchantSlug, null);
+        }
+        set({ tableContext: null });
+      },
     }),
     {
       name: "zentro-store",
@@ -155,6 +202,20 @@ export const useStore = create<State>()(
     }
   )
 );
+
+// ── Table context helpers (sessionStorage-backed) ────────────────────────────
+
+export function loadTableContext(merchantSlug: string): TableOrderContext | null {
+  return readSessionTableContext(merchantSlug);
+}
+
+export function saveTableContext(merchantSlug: string, ctx: TableOrderContext) {
+  writeSessionTableContext(merchantSlug, ctx);
+}
+
+export function removeTableContext(merchantSlug: string) {
+  writeSessionTableContext(merchantSlug, null);
+}
 
 export const cartTotal = (cart: CartItem[], menuItems?: MenuItem[]) =>
   cart.reduce((sum, c) => {

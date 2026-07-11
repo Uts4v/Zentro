@@ -20,6 +20,7 @@ import {
   LogOut,
   Menu,
   Package,
+  QrCode,
 } from "lucide-react";
 
 export const Route = createFileRoute("/merchant")({
@@ -31,6 +32,7 @@ const navItems = [
   { to: "/merchant/", label: "Overview", icon: LayoutDashboard },
   { to: "/merchant/orders", label: "Orders", icon: ShoppingBag },
   { to: "/merchant/menu", label: "Menu", icon: UtensilsCrossed },
+  { to: "/merchant/tables", label: "Tables", icon: QrCode },
   { to: "/merchant/loyalty", label: "Loyalty", icon: Trophy },
   { to: "/merchant/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/merchant/store", label: "Store", icon: Store },

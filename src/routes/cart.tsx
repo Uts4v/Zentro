@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useStore, cartTotal, cartPoints, type MenuItem } from "@/lib/store";
 import { TopBar, MobileShell } from "@/components/MobileShell";
-import { Minus, Plus, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { Minus, Plus, ArrowLeft, Loader2, AlertCircle, UtensilsCrossed, ShoppingBag } from "lucide-react";
 import { requireAuth } from "@/lib/auth-guard";
 import { menuApi } from "@/lib/api";
 import { useState, useEffect } from "react";
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/cart")({
 });
 
 function Cart() {
-  const { cart, add, remove, placeOrder, selectedMerchantId, clearCart } = useStore();
+  const { cart, add, remove, placeOrder, selectedMerchantId, clearCart, tableContext } = useStore();
   const nav = useNavigate();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,6 +124,17 @@ function Cart() {
       {cart.length > 0 && (
         <div className="mt-8 px-5">
           <div className="glass-strong rounded-3xl p-5">
+            {/* Table context banner */}
+            {tableContext && (
+              <div className="mb-4 flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3">
+                <UtensilsCrossed className="h-5 w-5 text-amber-600 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-amber-800">Dine-in order</p>
+                  <p className="text-sm font-semibold text-amber-900">{tableContext.tableName}</p>
+                </div>
+              </div>
+            )}
+
             <Row label="Subtotal" value={`NPR ${total.toLocaleString()}`} />
             <Row label="Service" value="—" />
             <div className="my-3 border-t border-border" />

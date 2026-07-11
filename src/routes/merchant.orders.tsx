@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Check, RefreshCw, Loader2, Clock, Bell, X,
   Search, Calendar, Trash2, ChevronDown, ChevronUp,
+  UtensilsCrossed, ShoppingBag, Truck,
 } from "lucide-react";
 import { orderApi, type Order, type OrderStatus } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
@@ -143,6 +144,8 @@ function MerchantOrders() {
   const [activeTab, setActiveTab] = useState<"live" | "history">("live");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
+  const [orderTypeFilter, setOrderTypeFilter] = useState<"all" | "dine_in" | "pickup" | "delivery">("all");
+  const [tableFilter, setTableFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -283,6 +286,22 @@ function MerchantOrders() {
       filtered = filtered.filter((o) => o.status === statusFilter);
     }
 
+    // Order type filter
+    if (orderTypeFilter !== "all") {
+      filtered = filtered.filter((o) => o.order_type === orderTypeFilter);
+    }
+
+    // Table filter
+    if (tableFilter !== "all") {
+      if (tableFilter === "dine_in") {
+        filtered = filtered.filter((o) => o.order_type === "dine_in");
+      } else if (tableFilter === "no_table") {
+        filtered = filtered.filter((o) => !o.table_id);
+      } else {
+        filtered = filtered.filter((o) => o.table_name_snapshot === tableFilter);
+      }
+    }
+
     // Date range
     if (dateFrom) {
       const from = new Date(dateFrom);
@@ -314,11 +333,13 @@ function MerchantOrders() {
   function clearFilters() {
     setSearch("");
     setStatusFilter("all");
+    setOrderTypeFilter("all");
+    setTableFilter("all");
     setDateFrom("");
     setDateTo("");
   }
 
-  const hasFilters = search || statusFilter !== "all" || dateFrom || dateTo;
+  const hasFilters = search || statusFilter !== "all" || orderTypeFilter !== "all" || tableFilter !== "all" || dateFrom || dateTo;
 
   if (loading) {
     return (
@@ -463,6 +484,18 @@ function MerchantOrders() {
                 <option value="cancelled">Cancelled</option>
               </select>
 
+              {/* Order type */}
+              <select
+                value={orderTypeFilter}
+                onChange={(e) => setOrderTypeFilter(e.target.value as any)}
+                className="h-9 rounded-xl border border-border bg-white px-3 text-xs text-ink outline-none focus:ring-2 focus:ring-ink/20"
+              >
+                <option value="all">All types</option>
+                <option value="dine_in">Dine-in</option>
+                <option value="pickup">Pickup</option>
+                <option value="delivery">Delivery</option>
+              </select>
+
               {/* Date from */}
               <div className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3">
                 <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
@@ -600,6 +633,12 @@ function HistoryRow({ order }: { order: Order }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="font-medium text-sm text-ink truncate">{customerName}</p>
+            {order.order_type === "dine_in" && order.table_name_snapshot && (
+              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                <UtensilsCrossed className="h-2.5 w-2.5" />
+                {order.table_name_snapshot}
+              </span>
+            )}
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${STATUS_COLOR[order.status]}`}>
               {order.status}
             </span>
@@ -624,6 +663,19 @@ function HistoryRow({ order }: { order: Order }) {
 
       {expanded && (
         <div className="px-5 pb-4 pt-1 space-y-2 bg-mist/20">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {order.order_type && (
+              <span className="inline-flex items-center gap-1">
+                {order.order_type === "dine_in" ? <UtensilsCrossed className="h-3 w-3" /> :
+                 order.order_type === "delivery" ? <Truck className="h-3 w-3" /> :
+                 <ShoppingBag className="h-3 w-3" />}
+                {order.order_type === "dine_in" ? "Dine-in" : order.order_type === "delivery" ? "Delivery" : "Pickup"}
+              </span>
+            )}
+            {order.order_type === "dine_in" && order.table_name_snapshot && (
+              <span className="font-medium text-ink">Table: {order.table_name_snapshot}</span>
+            )}
+          </div>
           <ul className="space-y-1">
             {(order.order_items ?? []).map((item) => (
               <li key={item.id} className="flex justify-between text-xs">
@@ -698,12 +750,33 @@ function OrderCard({
               <Bell className="h-2.5 w-2.5" /> New order!
             </div>
           )}
+          {/* Table badge - prominent for dine-in */}
+          {order.order_type === "dine_in" && order.table_name_snapshot && (
+            <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+              <UtensilsCrossed className="h-3 w-3" />
+              {order.table_name_snapshot}
+            </div>
+          )}
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">#{order.id.slice(0, 8)}</p>
           <h3 className="font-display mt-1 text-xl text-ink">{customerName}</h3>
         </div>
-        <span className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-widest font-medium ${STATUS_COLOR[order.status]}`}>
-          {order.status}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          {order.order_type && (
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              order.order_type === "dine_in" ? "bg-amber-50 text-amber-700" :
+              order.order_type === "delivery" ? "bg-blue-50 text-blue-700" :
+              "bg-gray-100 text-gray-700"
+            }`}>
+              {order.order_type === "dine_in" ? <UtensilsCrossed className="h-2.5 w-2.5" /> :
+               order.order_type === "delivery" ? <Truck className="h-2.5 w-2.5" /> :
+               <ShoppingBag className="h-2.5 w-2.5" />}
+              {order.order_type === "dine_in" ? "Dine-in" : order.order_type === "delivery" ? "Delivery" : "Pickup"}
+            </span>
+          )}
+          <span className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-widest font-medium ${STATUS_COLOR[order.status]}`}>
+            {order.status}
+          </span>
+        </div>
       </div>
 
       <ul className="mt-4 space-y-1.5">
