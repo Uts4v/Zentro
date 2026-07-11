@@ -119,10 +119,16 @@ BEGIN
   WHERE id = p_customer_id;
 
   IF v_last_streak_at IS NULL THEN
+    -- First order ever — start streak
     v_streak := 1;
+  ELSIF (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - v_last_streak_at)) / 3600) < 12 THEN
+    -- Less than 12h since last streak — same window, don't increment
+    v_streak := v_streak;
   ELSIF (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - v_last_streak_at)) / 3600) < 48 THEN
+    -- Between 12h and 48h — next day, increment streak
     v_streak := v_streak + 1;
   ELSE
+    -- More than 48h gap — streak broken, restart
     v_streak := 1;
   END IF;
 

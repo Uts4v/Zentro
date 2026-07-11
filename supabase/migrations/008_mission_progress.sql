@@ -60,6 +60,21 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Allow authenticated users to insert/update their own customer_missions (needed for SECURITY DEFINER RPC from browser)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Customers insert own missions' AND tablename = 'customer_missions') THEN
+    CREATE POLICY "Customers insert own missions" ON public.customer_missions FOR INSERT TO authenticated
+      WITH CHECK (customer_id = auth.uid());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Customers update own missions' AND tablename = 'customer_missions') THEN
+    CREATE POLICY "Customers update own missions" ON public.customer_missions FOR UPDATE TO authenticated
+      USING (customer_id = auth.uid());
+  END IF;
+END $$;
+
 -- Drop and recreate the function
 DROP FUNCTION IF EXISTS public.advance_mission_progress(UUID, UUID, NUMERIC);
 
@@ -68,7 +83,7 @@ CREATE OR REPLACE FUNCTION public.advance_mission_progress(
   p_merchant_id UUID,
   p_order_total NUMERIC DEFAULT 0
 )
-RETURNS void
+RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -78,9 +93,11 @@ DECLARE
   v_progress RECORD;
   v_new_count NUMERIC;
   v_should_award boolean;
+  v_result text := '';
+  v_awarded_total integer := 0;
 BEGIN
   FOR v_mission IN
-    SELECT id, target_count, reward_points, mission_type
+    SELECT id, target_count, reward_points, mission_type, title
     FROM missions
     WHERE merchant_id = p_merchant_id
       AND is_active = true
@@ -102,7 +119,6 @@ BEGIN
     END IF;
 
     IF v_progress IS NULL THEN
-      -- No progress row yet — create one
       INSERT INTO customer_missions (customer_id, mission_id, current_count, is_completed)
       VALUES (
         p_customer_id,
@@ -110,28 +126,41 @@ BEGIN
         v_new_count,
         v_new_count >= v_mission.target_count
       );
-      -- Award points if completed in one shot
+      v_result := v_result || format('Created progress for "%s": %s/%s', v_mission.title, v_new_count, v_mission.target_count);
       IF v_new_count >= v_mission.target_count THEN
         v_should_award := true;
       END IF;
     ELSIF NOT v_progress.is_completed THEN
-      -- Update existing progress
       UPDATE customer_missions
       SET current_count = v_new_count,
           is_completed = v_new_count >= v_mission.target_count
       WHERE id = v_progress.id;
-      -- Award points if just crossed the threshold
+      v_result := v_result || format('Updated progress for "%s": %s/%s', v_mission.title, v_new_count, v_mission.target_count);
       IF v_new_count >= v_mission.target_count THEN
         v_should_award := true;
       END IF;
+    ELSE
+      v_result := v_result || format('Mission "%s" already completed, skipped.', v_mission.title);
     END IF;
 
-    -- Award reward points
     IF v_should_award THEN
       UPDATE profiles
       SET points = points + v_mission.reward_points
       WHERE id = p_customer_id;
+      v_awarded_total := v_awarded_total + v_mission.reward_points;
+      v_result := v_result || format(' AWARDED %s pts.', v_mission.reward_points);
     END IF;
+
+    v_result := v_result || E'\n';
   END LOOP;
+
+  IF v_awarded_total > 0 THEN
+    v_result := v_result || format('TOTAL AWARDED: %s pts', v_awarded_total);
+  ELSE IF v_result = '' THEN
+    v_result := 'No active missions found for this merchant.';
+  END IF;
+  END IF;
+
+  RETURN v_result;
 END;
 $$;
