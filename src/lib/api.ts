@@ -488,13 +488,16 @@ export const orderApi = {
       }
 
       // Advance mission progress + award reward points on completion
-      await (supabase.rpc as any)("advance_mission_progress", {
-        p_customer_id: data.customer_id,
-        p_merchant_id: data.merchant_id,
-        p_order_total: parseFloat(data.total_amount),
-      }).then(({ error }: any) => {
-        if (error) console.error("Mission progress error:", error.message);
-      });
+      try {
+        const { error: missionErr } = await (supabase.rpc as any)("advance_mission_progress", {
+          p_customer_id: data.customer_id,
+          p_merchant_id: data.merchant_id,
+          p_order_total: parseFloat(data.total_amount),
+        });
+        if (missionErr) console.error("Mission progress error:", missionErr.message);
+      } catch (e) {
+        console.error("Mission progress exception:", e);
+      }
     }
 
     return data as Order;
