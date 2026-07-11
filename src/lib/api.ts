@@ -486,6 +486,15 @@ export const orderApi = {
           }
         }
       }
+
+      // Advance mission progress + award reward points on completion
+      await (supabase.rpc as any)("advance_mission_progress", {
+        p_customer_id: data.customer_id,
+        p_merchant_id: data.merchant_id,
+        p_order_total: parseFloat(data.total_amount),
+      }).then(({ error }: any) => {
+        if (error) console.error("Mission progress error:", error.message);
+      });
     }
 
     return data as Order;

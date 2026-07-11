@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { ArrowLeft, Loader2, UtensilsCrossed, ShoppingCart, Plus, Minus, Zap } from "lucide-react";
+import { ArrowLeft, Loader2, UtensilsCrossed, ShoppingCart, Plus, Minus, Zap, Search, X } from "lucide-react";
 import { publicTableApi, menuApi, type MerchantProfile, type MenuItem, type MerchantTable } from "@/lib/api";
 import { useStore, cartTotal, cartPoints, saveTableContext, loadTableContext, type TableOrderContext } from "@/lib/store";
 import { useState, useEffect, useMemo } from "react";
@@ -10,7 +10,99 @@ export const Route = createFileRoute("/m/$merchantSlug/table/$tableToken")({
   component: TableQRPage,
 });
 
+function TableMenuItem({
+  item,
+  onAdd,
+  onRemove,
+  qty,
+  addedId,
+}: {
+  item: MenuItem;
+  onAdd: () => void;
+  onRemove: () => void;
+  qty: number;
+  addedId: string | null;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const hasImage = !!item.image_url && !imgError;
+  const price = parseFloat(item.price);
+
+  return (
+    <article
+      className={`glass-strong group relative flex flex-col overflow-hidden rounded-3xl transition-all ${
+        qty > 0 ? "ring-1 ring-ink/10" : ""
+      }`}
+    >
+      {hasImage ? (
+        <img
+          src={item.image_url!}
+          alt={item.name}
+          className="h-32 w-full object-cover"
+          onError={() => setImgError(true)}
+          loading="lazy"
+        />
+      ) : (
+        <div className="grid h-24 place-items-center bg-mist text-5xl">
+          {item.emoji || "🍽️"}
+        </div>
+      )}
+      <div className="flex flex-1 flex-col p-3">
+        <h3 className="text-sm font-semibold leading-tight text-ink">{item.name}</h3>
+        {item.description && (
+          <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{item.description}</p>
+        )}
+        <div className="mt-2 flex items-center justify-between">
+          <div>
+            <span className="font-display text-base text-ink">
+              NPR {price.toLocaleString()}
+            </span>
+            {item.points_per_item > 0 && (
+              <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-ember-soft px-1.5 py-0.5 text-[10px] font-medium text-ember">
+                <Zap className="h-2.5 w-2.5" /> {item.points_per_item}
+              </span>
+            )}
+          </div>
+          {qty === 0 ? (
+            <button
+              onClick={onAdd}
+              className={`grid h-9 w-9 place-items-center rounded-full transition-all ${
+                addedId === item.id
+                  ? "bg-emerald-500 text-white scale-110"
+                  : "bg-ink text-primary-foreground active:scale-95"
+              }`}
+            >
+              {addedId === item.id ? (
+                <span className="text-xs">✓</span>
+              ) : (
+                <Plus className="h-4 w-4" strokeWidth={2.4} />
+              )}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 rounded-full bg-mist px-1 py-0.5">
+              <button
+                onClick={onRemove}
+                className="grid h-7 w-7 place-items-center rounded-full bg-background text-ink shadow-sm active:scale-95"
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+              <span className="w-4 text-center font-display text-base text-ink">{qty}</span>
+              <button
+                onClick={onAdd}
+                className="grid h-7 w-7 place-items-center rounded-full bg-ink text-primary-foreground shadow-sm active:scale-95"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function TableQRPage() {
+  if (typeof window === "undefined") return null;
+
   const { merchantSlug, tableToken } = Route.useParams();
   const nav = useNavigate();
 
@@ -21,6 +113,9 @@ function TableQRPage() {
   const [error, setError] = useState("");
   const [addedId, setAddedId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState("All");
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   const { cart, add, remove, setSelectedMerchant, setTableContext, tableContext } = useStore();
 
@@ -36,7 +131,6 @@ function TableQRPage() {
       setMerchant(result.merchant);
       setTable(result.table);
 
-      // Set merchant + table context
       setSelectedMerchant(result.merchant.id);
 
       const ctx: TableOrderContext = {
@@ -49,7 +143,6 @@ function TableQRPage() {
       setTableContext(ctx);
       saveTableContext(merchantSlug, ctx);
 
-      // Load menu
       const menuItems = await menuApi.forMerchant(result.merchant.id);
       setItems(menuItems);
     } catch (e: any) {
@@ -59,9 +152,19 @@ function TableQRPage() {
     }
   }
 
+  const searchFiltered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.description ?? "").toLowerCase().includes(q)
+    );
+  }, [items, search]);
+
   const menuItems = useMemo(
     () =>
-      items.map((i) => ({
+      searchFiltered.map((i) => ({
         id: i.id,
         name: i.name,
         description: i.description,
@@ -72,7 +175,7 @@ function TableQRPage() {
         is_available: i.is_available,
         image_url: i.image_url,
       })),
-    [items]
+    [searchFiltered]
   );
 
   const total = cartTotal(cart, menuItems);
@@ -80,22 +183,22 @@ function TableQRPage() {
   const cartCount = cart.reduce((s, c) => s + c.qty, 0);
 
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
+    const cats = Array.from(new Set(searchFiltered.map((i) => i.category).filter(Boolean)));
     return ["All", ...cats];
-  }, [items]);
+  }, [searchFiltered]);
 
   const groupedItems = useMemo(() => {
     if (activeCategory !== "All") {
-      const filtered = items.filter((i) => i.category === activeCategory);
+      const filtered = searchFiltered.filter((i) => i.category === activeCategory);
       return { [activeCategory]: filtered };
     }
-    return items.reduce<Record<string, MenuItem[]>>((acc, item) => {
+    return searchFiltered.reduce<Record<string, MenuItem[]>>((acc, item) => {
       const cat = item.category || "Other";
       if (!acc[cat]) acc[cat] = [];
       acc[cat].push(item);
       return acc;
     }, {});
-  }, [items, activeCategory]);
+  }, [searchFiltered, activeCategory]);
 
   function handleAdd(item: MenuItem) {
     setSelectedMerchant(merchant!.id);
@@ -142,6 +245,38 @@ function TableQRPage() {
 
   return (
     <MobileShell>
+      <TopBar
+        right={
+          <button
+            onClick={() => setSearchOpen((o) => !o)}
+            aria-label="Search menu"
+            className={`grid h-9 w-9 place-items-center rounded-full transition-colors ${
+              searchOpen ? "bg-ink text-white" : "bg-white/10 text-white"
+            }`}
+          >
+            <Search className="h-4 w-4" strokeWidth={1.8} />
+          </button>
+        }
+      />
+
+      {searchOpen && (
+        <section className="px-5 pb-1">
+          <div className="glass-strong flex items-center gap-2 rounded-2xl px-4 py-2.5">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search menu…"
+              className="flex-1 bg-transparent text-sm text-ink placeholder:text-muted-foreground focus:outline-none"
+            />
+            <button onClick={() => { setSearchOpen(false); setSearch(""); }} aria-label="Close search" className="shrink-0">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Table context banner */}
       <div className="bg-ink px-5 py-4 text-primary-foreground">
         <div className="flex items-center gap-3">
@@ -166,117 +301,59 @@ function TableQRPage() {
         </div>
       </div>
 
+      {/* Category tabs */}
+      {categories.length > 2 && (
+        <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto px-5 pb-1">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-all ${
+                activeCategory === cat
+                  ? "bg-ink text-primary-foreground shadow-soft"
+                  : "glass text-muted-foreground hover:text-ink"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Menu */}
       <div className="mt-4 pb-36">
-        <div className="px-4">
-          <h2 className="font-display text-2xl text-ink">Menu</h2>
-        </div>
-
-        {/* Category tabs */}
-        {categories.length > 2 && (
-          <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-all ${
-                  activeCategory === cat
-                    ? "bg-ink text-primary-foreground shadow-soft"
-                    : "glass text-muted-foreground hover:text-ink"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
-
         {items.length === 0 ? (
-          <div className="mx-4 mt-4 glass rounded-3xl py-16 text-center">
+          <div className="mx-5 glass rounded-3xl py-16 text-center">
             <p className="text-4xl">📋</p>
             <p className="mt-3 font-display text-lg text-ink">Nothing here yet</p>
             <p className="mt-1 text-sm text-muted-foreground">Menu is being prepared</p>
           </div>
+        ) : search.trim() && searchFiltered.length === 0 ? (
+          <p className="px-5 text-center text-sm text-muted-foreground">
+            No items match "{search}"
+          </p>
         ) : (
-          <div className="mt-4 space-y-6 px-4">
+          <div className="space-y-6 px-5">
             {Object.entries(groupedItems).map(([cat, catItems]) => (
               <div key={cat}>
                 {activeCategory === "All" && (
-                  <p className="mb-3 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                    {cat}
-                  </p>
+                  <div className="mb-3 flex items-baseline gap-2">
+                    <p className="text-sm font-semibold uppercase tracking-wide text-ink">{cat}</p>
+                    <span className="text-[11px] text-muted-foreground">{catItems.length}</span>
+                  </div>
                 )}
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   {catItems.map((item) => {
                     const qty = cart.find((c) => c.itemId === item.id)?.qty ?? 0;
-                    const price = parseFloat(item.price);
                     return (
-                      <div
+                      <TableMenuItem
                         key={item.id}
-                        className={`glass-strong overflow-hidden rounded-2xl transition-all ${
-                          qty > 0 ? "ring-1 ring-ink/10" : ""
-                        }`}
-                      >
-                        <div className="flex items-stretch gap-0">
-                          <div className="grid h-24 w-24 shrink-0 place-items-center bg-mist text-3xl">
-                            {item.emoji || "🍽️"}
-                          </div>
-                          <div className="flex min-w-0 flex-1 flex-col justify-between p-3">
-                            <div>
-                              <p className="font-semibold leading-tight text-ink">{item.name}</p>
-                              {item.description && (
-                                <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                                  {item.description}
-                                </p>
-                              )}
-                            </div>
-                            <div className="mt-2 flex items-center justify-between">
-                              <div>
-                                <span className="font-display text-base text-ink">
-                                  NPR {price.toLocaleString()}
-                                </span>
-                                {item.points_per_item > 0 && (
-                                  <span className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-ember-soft px-1.5 py-0.5 text-[10px] font-medium text-ember">
-                                    <Zap className="h-2.5 w-2.5" /> {item.points_per_item}
-                                  </span>
-                                )}
-                              </div>
-                              {qty === 0 ? (
-                                <button
-                                  onClick={() => handleAdd(item)}
-                                  className={`grid h-8 w-8 place-items-center rounded-full transition-all ${
-                                    addedId === item.id
-                                      ? "bg-emerald-500 text-white scale-110"
-                                      : "bg-ink text-primary-foreground active:scale-95"
-                                  }`}
-                                >
-                                  {addedId === item.id ? (
-                                    <span className="text-xs">✓</span>
-                                  ) : (
-                                    <Plus className="h-4 w-4" />
-                                  )}
-                                </button>
-                              ) : (
-                                <div className="flex items-center gap-2 rounded-full bg-mist px-1 py-0.5">
-                                  <button
-                                    onClick={() => remove(item.id)}
-                                    className="grid h-7 w-7 place-items-center rounded-full bg-background text-ink shadow-sm active:scale-95"
-                                  >
-                                    <Minus className="h-3.5 w-3.5" />
-                                  </button>
-                                  <span className="w-4 text-center font-display text-base text-ink">{qty}</span>
-                                  <button
-                                    onClick={() => handleAdd(item)}
-                                    className="grid h-7 w-7 place-items-center rounded-full bg-ink text-primary-foreground shadow-sm active:scale-95"
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                        item={item}
+                        qty={qty}
+                        addedId={addedId}
+                        onAdd={() => handleAdd(item)}
+                        onRemove={() => remove(item.id)}
+                      />
                     );
                   })}
                 </div>
