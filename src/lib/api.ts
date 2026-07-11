@@ -442,10 +442,14 @@ export const orderApi = {
 
     if (status === "confirmed") {
       if (data.points_earned > 0) {
-        await (supabase.rpc as any)("increment_points", {
-          user_id: data.customer_id,
-          pts: data.points_earned,
-        }).throwOnError();
+        try {
+          await (supabase.rpc as any)("increment_points", {
+            user_id: data.customer_id,
+            pts: data.points_earned,
+          }).throwOnError();
+        } catch (e) {
+          console.error("increment_points error:", e);
+        }
       }
 
       const { data: merchantProfile } = await supabase
@@ -457,33 +461,45 @@ export const orderApi = {
       const stampMode = merchantProfile?.punch_card_stamp_mode ?? "orders";
 
       if (stampMode === "orders") {
-        await (supabase.rpc as any)("increment_punch_card", {
-          p_customer_id: data.customer_id,
-          p_merchant_id: data.merchant_id,
-        }).throwOnError();
+        try {
+          await (supabase.rpc as any)("increment_punch_card", {
+            p_customer_id: data.customer_id,
+            p_merchant_id: data.merchant_id,
+          }).throwOnError();
+        } catch (e) {
+          console.error("increment_punch_card error:", e);
+        }
       }
 
-      await (supabase.rpc as any)("try_increment_streak", {
-        p_customer_id: data.customer_id,
-        p_merchant_id: data.merchant_id,
-        p_order_total: parseFloat(data.total_amount),
-      }).throwOnError();
+      try {
+        await (supabase.rpc as any)("try_increment_streak", {
+          p_customer_id: data.customer_id,
+          p_merchant_id: data.merchant_id,
+          p_order_total: parseFloat(data.total_amount),
+        }).throwOnError();
+      } catch (e) {
+        console.error("try_increment_streak error:", e);
+      }
 
       if (stampMode === "streak") {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("streak, last_streak_at")
-          .eq("id", data.customer_id)
-          .single();
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("streak, last_streak_at")
+            .eq("id", data.customer_id)
+            .single();
 
-        if (profile?.last_streak_at) {
-          const hoursSinceStreak = (Date.now() - new Date(profile.last_streak_at).getTime()) / 3_600_000;
-          if (hoursSinceStreak < 24) {
-            await (supabase.rpc as any)("increment_punch_card", {
-              p_customer_id: data.customer_id,
-              p_merchant_id: data.merchant_id,
-            }).throwOnError();
+          if (profile?.last_streak_at) {
+            const hoursSinceStreak = (Date.now() - new Date(profile.last_streak_at).getTime()) / 3_600_000;
+            if (hoursSinceStreak < 24) {
+              await (supabase.rpc as any)("increment_punch_card", {
+                p_customer_id: data.customer_id,
+                p_merchant_id: data.merchant_id,
+              }).throwOnError();
+            }
           }
+        } catch (e) {
+          console.error("streak punch error:", e);
         }
       }
 
