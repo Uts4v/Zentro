@@ -3,10 +3,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useStore, cartTotal, type MenuItem } from "@/lib/store";
 import { merchantApi, menuApi, customerApi } from "@/lib/api";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { Plus, ShoppingBag, Flame, Trophy, Stamp, Loader2, Search, X, Gift } from "lucide-react";
+import { Plus, ShoppingBag, Flame, Trophy, Stamp, Loader2, Search, X, Gift, Scan } from "lucide-react";
 import { requireAuth } from "@/lib/auth-guard";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { QRScanner } from "@/components/QRScanner";
+import { useNavigate } from "@tanstack/react-router";
 
 
 export const Route = createFileRoute("/")({
@@ -71,6 +73,7 @@ function MenuItemCard({
 
 function Index() {
   const { cart, add, selectedMerchantId, setSelectedMerchant } = useStore();
+  const nav = useNavigate();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [merchantName, setMerchantName] = useState("Select a store");
   const [points, setPoints] = useState(0);
@@ -81,6 +84,32 @@ function Index() {
   // ── Search ──────────────────────────────────────────────────────────────
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
+
+  // ── QR Scanner (Dine-in) ───────────────────────────────────────────────
+  const [scanOpen, setScanOpen] = useState(false);
+
+  function parseTableUrl(scanned: string): { slug: string; token: string } | null {
+    try {
+      let path = scanned;
+      if (scanned.startsWith("http")) {
+        const url = new URL(scanned);
+        path = url.pathname;
+      }
+      const match = path.match(/^\/m\/([^/]+)\/table\/([^/]+)$/);
+      if (match) return { slug: match[1], token: match[2] };
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  function handleScanned(url: string) {
+    setScanOpen(false);
+    const parsed = parseTableUrl(url);
+    if (parsed) {
+      nav({ to: `/m/${parsed.slug}/table/${parsed.token}` as any });
+    }
+  }
 
   function closeSearch() {
     setSearchOpen(false);
@@ -255,6 +284,15 @@ function Index() {
               </span>
             </div>
           )}
+          {selectedMerchantId && (
+            <button
+              onClick={() => setScanOpen(true)}
+              className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-ink px-5 text-sm font-medium text-primary-foreground transition-transform active:scale-[0.98]"
+            >
+              <Scan className="h-4 w-4" />
+              Dine-in · Scan table QR
+            </button>
+          )}
           {!selectedMerchantId && !loading && (
             <p className="mt-2 text-sm text-muted-foreground">
               <Link to="/stores" className="text-ember underline">
@@ -350,6 +388,12 @@ function Index() {
           <span className="font-display text-lg">NPR {total.toLocaleString()} →</span>
         </Link>
       )}
+
+      <QRScanner
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onScanned={handleScanned}
+      />
     </MobileShell>
   );
 }
