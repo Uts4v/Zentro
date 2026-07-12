@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { missionApi, type MissionView } from "@/lib/api";
+import { missionApi, activityApi, type MissionView, type ActivityLogEntry } from "@/lib/api";
 import { MobileShell, TopBar } from "@/components/MobileShell";
 import { requireAuth } from "@/lib/auth-guard";
 import { useEffect, useState } from "react";
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/missions")({
 function Missions() {
   const [missions, setMissions] = useState<MissionView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [completions, setCompletions] = useState<ActivityLogEntry[]>([]);
 
   useEffect(() => {
     missionApi
@@ -20,6 +21,13 @@ function Missions() {
       .then(setMissions)
       .catch(() => setMissions([]))
       .finally(() => setLoading(false));
+
+    activityApi
+      .forCustomer(10)
+      .then((data) =>
+        setCompletions(data.filter((a) => a.activity_type === "mission_completed"))
+      )
+      .catch(() => setCompletions([]));
   }, []);
 
   return (
@@ -82,6 +90,28 @@ function Missions() {
           );
         })}
       </div>
+
+      {/* Completion history */}
+      {completions.length > 0 && (
+        <div className="px-5 pb-8">
+          <h2 className="font-display mb-3 text-xl text-ink">Recent completions</h2>
+          <div className="space-y-2">
+            {completions.map((c) => (
+              <div key={c.id} className="glass rounded-2xl p-4 flex items-center gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-lg">
+                  🏆
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-ink">{c.title}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {new Date(c.created_at).toLocaleDateString()} · Earned {c.metadata?.reward_points ?? ""} pts
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </MobileShell>
   );
 }

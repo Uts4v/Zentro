@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
 import { customerApi, missionApi, merchantApi, type PunchCard, type MissionView } from "@/lib/api";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { Flame, Sparkles, Gift, Loader2 } from "lucide-react";
+import { Flame, Sparkles, Gift, Loader2, Copy, Check, X } from "lucide-react";
 import { requireAuth } from "@/lib/auth-guard";
 import { useEffect, useState, useCallback } from "react";
 
@@ -55,6 +55,8 @@ function Loyalty() {
   const [punchLoading, setPunchLoading] = useState(false);
   const [usingFreeReward, setUsingFreeReward] = useState(false);
   const [punchError, setPunchError] = useState<string | null>(null);
+  const [confirmationCode, setConfirmationCode] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   // FIX: Auto-select first merchant if none is selected
   useEffect(() => {
@@ -115,7 +117,8 @@ function Loyalty() {
     setUsingFreeReward(true);
     setPunchError(null);
     try {
-      await customerApi.claimFreeReward(selectedMerchantId);
+      const { code } = await customerApi.claimFreeReward(selectedMerchantId);
+      setConfirmationCode(code);
       await loadPunchCard();
     } catch (e: any) {
       setPunchError(e.message || "Failed to claim reward. Try again.");
@@ -418,6 +421,47 @@ function Loyalty() {
           </p>
         </div>
       </section>
+      {/* Confirmation code modal */}
+      {confirmationCode && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-5">
+          <div className="glass-strong relative w-full max-w-sm rounded-3xl p-8 text-center">
+            <button
+              onClick={() => { setConfirmationCode(null); setCodeCopied(false); }}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-ink"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full gradient-ember">
+              <Gift className="h-8 w-8 text-white" />
+            </div>
+            <h2 className="font-display mt-4 text-2xl text-ink">Reward Claimed!</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Show this code to the merchant to confirm your reward.
+            </p>
+            <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-ink px-5 py-4">
+              <span className="font-mono text-3xl font-bold tracking-[0.3em] text-primary-foreground">
+                {confirmationCode}
+              </span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(confirmationCode);
+                  setCodeCopied(true);
+                  setTimeout(() => setCodeCopied(false), 1500);
+                }}
+                className="ml-2 rounded-full bg-white/15 p-2 text-white hover:bg-white/25 transition-colors"
+              >
+                {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+            <button
+              onClick={() => { setConfirmationCode(null); setCodeCopied(false); }}
+              className="mt-5 w-full rounded-full bg-mist py-2.5 text-sm font-medium text-ink hover:bg-mist/80 transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </MobileShell>
   );
 }

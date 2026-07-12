@@ -392,6 +392,16 @@ export const orderApi = {
         });
       }
 
+      // Log activity for merchant history
+      await logActivity({
+        customer_id: userId,
+        merchant_id: payload.merchant_id,
+        activity_type: "order_placed",
+        title: "Order placed",
+        description: `Dine-in order placed${payload.table_token ? " (table)" : ""}`,
+        metadata: { order_id: orderId, order_type: "dine_in" },
+      });
+
       return order as Order;
     }
 
@@ -444,6 +454,16 @@ export const orderApi = {
         is_read: false,
       });
     }
+
+    // Log activity for merchant history
+    await logActivity({
+      customer_id: userId,
+      merchant_id: payload.merchant_id,
+      activity_type: "order_placed",
+      title: "Order placed",
+      description: `${payload.order_type === "pickup" ? "Pickup" : "Delivery"} order — $${total.toFixed(2)}`,
+      metadata: { order_id: order.id, order_type: payload.order_type, total },
+    });
 
     return { ...order, order_items: orderItems } as Order;
   },
@@ -521,15 +541,21 @@ export const orderApi = {
       }
 
       // Advance mission progress + award reward points on completion
-      try {
-        const { data: missionResult, error: missionErr } = await supabase.rpc("advance_mission_progress", {
-          p_customer_id: data.customer_id,
-          p_merchant_id: data.merchant_id,
-          p_order_total: parseFloat(data.total_amount),
-        });
-        if (missionErr) console.error("Mission progress error:", missionErr.message);
-      } catch (e) {
-        console.error("Mission progress exception:", e);
+      // Skip reward/punch card orders — only count real purchases.
+      const notes = data.notes ?? "";
+      const isRewardOrder =
+        notes.startsWith("Redeemed reward") ||
+        notes.includes("Punch card reward");
+      if (!isRewardOrder) {
+        try {
+          await supabase.rpc("advance_mission_progress", {
+            p_customer_id: data.customer_id,
+            p_merchant_id: data.merchant_id,
+            p_order_total: parseFloat(data.total_amount) || 0,
+          });
+        } catch (e) {
+          console.warn("advance_mission_progress RPC skipped:", e);
+        }
       }
     }
 
@@ -771,7 +797,7 @@ export const customerApi = {
     }).throwOnError();
   },
 
-  claimFreeReward: async (merchantId: string): Promise<void> => {
+  claimFreeReward: async (merchantId: string): Promise<{ code: string }> => {
     const userId = await getCurrentUserId();
 
     const { data: merchant, error: mErr } = await supabase
@@ -800,6 +826,18 @@ export const customerApi = {
       .single();
     if (oErr || !order) throw new Error(oErr?.message ?? "Failed to create order");
 
+    const code = order.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+
+    // Log activity for merchant history
+    await logActivity({
+      customer_id: userId,
+      merchant_id: merchantId,
+      activity_type: "punch_reward_claimed",
+      title: "Punch card reward claimed",
+      description: `Customer claimed punch card reward at ${merchant.store_name}`,
+      metadata: { order_id: order.id, code },
+    });
+
     const { error: nErr } = await supabase
       .from("notifications")
       .insert({
@@ -808,10 +846,12 @@ export const customerApi = {
         type: "punch_card_reward",
         title: "Punch card reward claimed!",
         body: `A customer just claimed their punch card reward at ${merchant.store_name}.`,
-        data: { customer_id: userId, merchant_id: merchantId, order_id: order.id },
+        data: { customer_id: userId, merchant_id: merchantId, order_id: order.id, code },
         is_read: false,
       });
-    if (nErr) throw new Error(nErr.message);
+    if (nErr) console.error("notification insert failed:", nErr.message);
+
+    return { code };
   },
 };
 
@@ -833,6 +873,108 @@ export const missionApi = {
       .eq("customer_id", userId);
 
     const progressMap = new Map((progress ?? []).map((p) => [p.mission_id, p]));
+
+    for (const m of missions ?? []) {
+      // Spend_amount: rely on RPC, skip client-side logic
+      if (m.mission_type === "spend_amount") continue;
+
+      const existing = progressMap.get(m.id);
+
+      // No progress row yet — create one at 0
+      if (!existing) {
+        const { data: inserted } = await supabase
+          .from("customer_missions")
+          .insert({
+            customer_id: userId,
+            mission_id: m.id,
+            current_count: 0,
+            is_completed: false,
+          })
+          .select("id, created_at")
+          .maybeSingle();
+
+        progressMap.set(m.id, {
+          id: inserted?.id ?? "",
+          customer_id: userId,
+          mission_id: m.id,
+          current_count: 0,
+          is_completed: false,
+          created_at: inserted?.created_at ?? new Date().toISOString(),
+        });
+        continue;
+      }
+
+      // Already completed and points awarded — show as completed
+      if (existing.is_completed) {
+        continue;
+      }
+
+      const currentCount = existing.current_count ?? 0;
+
+      // Target reached — award points, log, notify, then reset
+      if (currentCount >= m.target_count && m.reward_points > 0) {
+        // 0. Atomically claim this completion — prevents double-award on concurrent calls
+        const { data: claimed } = await supabase
+          .from("customer_missions")
+          .update({ is_completed: true })
+          .eq("id", existing.id)
+          .eq("is_completed", false)
+          .eq("current_count", currentCount)
+          .select("id")
+          .maybeSingle();
+        if (!claimed) continue; // another call already handled this
+
+        try {
+          // 1. Award points
+          const { error: ptsErr } = await supabase.rpc("increment_points", {
+            user_id: userId,
+            pts: m.reward_points,
+          });
+          if (ptsErr) console.error("increment_points error:", ptsErr);
+
+          // 2. Log activity for merchant history
+          await logActivity({
+            customer_id: userId,
+            merchant_id: m.merchant_id,
+            activity_type: "mission_completed",
+            title: m.title,
+            description: `Completed "${m.title}" — earned ${m.reward_points} points`,
+            metadata: { mission_id: m.id, reward_points: m.reward_points },
+          });
+
+          // 3. Notify customer
+          const { error: nErr } = await supabase.from("notifications").insert({
+            recipient_id: userId,
+            recipient_role: "customer",
+            type: "mission_completed",
+            title: "Mission completed!",
+            body: `You completed "${m.title}" and earned ${m.reward_points} points!`,
+            data: { mission_id: m.id, reward_points: m.reward_points },
+          });
+          if (nErr) console.error("notification insert error:", nErr);
+        } catch (e) {
+          console.error("mission completion side effects error:", e);
+        }
+
+        // 4. ALWAYS reset for next cycle — must run even if above steps fail
+        const { error: resetErr } = await supabase
+          .from("customer_missions")
+          .update({
+            current_count: 0,
+            is_completed: false,
+          })
+          .eq("id", existing.id);
+        if (resetErr) console.error("mission reset error:", resetErr);
+
+        progressMap.set(m.id, {
+          ...existing,
+          current_count: 0,
+          is_completed: false,
+        });
+      } else if (!existing.is_completed) {
+        progressMap.set(m.id, existing);
+      }
+    }
 
     return (missions ?? []).map((m) => {
       const p = progressMap.get(m.id);
@@ -926,7 +1068,7 @@ export const rewardApi = {
     }).throwOnError();
 
     const code = Math.random().toString(36).slice(2, 8).toUpperCase();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     const { data: redemption, error: redErr } = await supabase
       .from("redemptions")
@@ -941,42 +1083,6 @@ export const rewardApi = {
       .select()
       .single();
     if (redErr || !redemption) throw new Error(redErr?.message ?? "Redemption failed");
-
-    // Create a lightweight order for the merchant so they can see the
-    // redeemed reward in their orders list and hand it to the customer.
-    try {
-      const { data: order, error: orderErr } = await supabase
-        .from("orders")
-        .insert({
-          customer_id: userId,
-          merchant_id: reward.merchant_id,
-          status: "pending",
-          total_amount: 0,
-          points_earned: 0,
-          notes: `Redeemed reward: ${reward.name}`,
-        })
-        .select()
-        .single();
-
-      if (orderErr || !order) {
-        // Don't fail the entire redemption if order creation fails,
-        // but log the error to help debugging.
-        console.warn("Failed to create reward order:", orderErr);
-      } else {
-        await supabase.from("order_items").insert([
-          {
-            order_id: order.id,
-            menu_item_id: null,
-            name: `Reward: ${reward.name}`,
-            price: 0,
-            quantity: 1,
-            subtotal: 0,
-          },
-        ]);
-      }
-    } catch (e) {
-      console.warn("Error creating reward order:", e);
-    }
 
     return redemption as Redemption;
   },
@@ -1088,40 +1194,60 @@ export const loyaltyApi = {
     return { token, redemption_id: data.id };
   },
 
-  confirmRedemption: async (code: string): Promise<{ customer_name: string; points_deducted: number }> => {
+  confirmRedemption: async (code: string, merchantIdOverride?: string): Promise<{ customer_name: string; reward_name: string }> => {
+    const upperCode = code.trim().toUpperCase();
     const { data: redemption, error: rErr } = await supabase
       .from("redemptions")
-      .select("*, rewards(points_cost, name), customer_id")
-      .eq("code", code)
+      .select("*, rewards(points_cost, name, merchant_id), customer_id")
+      .eq("code", upperCode)
       .eq("status", "pending")
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
     if (rErr) throw new Error(rErr.message);
     if (!redemption) throw new Error("Invalid or expired code");
 
-    const pointsCost = (redemption.rewards as any)?.points_cost ?? 0;
-
     const { data: profile, error: pErr } = await supabase
       .from("profiles")
-      .select("points, full_name")
+      .select("full_name")
       .eq("id", redemption.customer_id)
       .single();
     if (pErr || !profile) throw new Error("Customer profile not found");
-    if (profile.points < pointsCost) throw new Error("Customer has insufficient points");
 
-    await (supabase.rpc as any)("deduct_points", {
-      target_user_id: redemption.customer_id,
-      amount: pointsCost,
-    }).throwOnError();
+    const rewardName = (redemption.rewards as any)?.name ?? "Reward";
+    const merchantId = merchantIdOverride ?? (redemption.rewards as any)?.merchant_id;
 
     await supabase
       .from("redemptions")
       .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
       .eq("id", redemption.id);
 
+    const { error: oErr } = await supabase
+      .from("orders")
+      .insert({
+        customer_id: redemption.customer_id,
+        merchant_id: merchantId,
+        status: "pending",
+        total_amount: 0,
+        points_earned: 0,
+        notes: `Redeemed reward: ${rewardName}`,
+      });
+    if (oErr) console.warn("Failed to create reward order:", oErr);
+
+    // Log activity for merchant history
+    if (merchantId) {
+      await logActivity({
+        customer_id: redemption.customer_id,
+        merchant_id: merchantId,
+        activity_type: "reward_redeemed",
+        title: "Reward redeemed",
+        description: `${profile.full_name ?? "Customer"} redeemed "${rewardName}" for ${redemption.points_spent} points`,
+        metadata: { reward_id: redemption.reward_id, points_spent: redemption.points_spent, code },
+      });
+    }
+
     return {
       customer_name: profile.full_name ?? "Customer",
-      points_deducted: pointsCost,
+      reward_name: rewardName,
     };
   },
 
@@ -1538,5 +1664,82 @@ export const retailApi = {
       .single();
     if (error) throw new Error(error.message);
     return data as RetailOrder;
+  },
+};
+
+// ── Activity Log ─────────────────────────────────────────────────────────────
+
+async function logActivity(entry: {
+  customer_id: string;
+  merchant_id: string;
+  activity_type: string;
+  title: string;
+  description: string;
+  metadata?: Record<string, any>;
+}) {
+  const { error } = await supabase.from("activity_log").insert(entry);
+  if (error) console.error("activity_log insert failed:", error.message, entry);
+}
+
+export interface ActivityLogEntry {
+  id: string;
+  customer_id: string;
+  merchant_id: string;
+  activity_type: string;
+  title: string;
+  description: string;
+  metadata: Record<string, any>;
+  created_at: string;
+}
+
+export const activityApi = {
+  /** Merchant's view: all activity for their store */
+  forMerchant: async (limit = 100, sinceDaysAgo = 60): Promise<ActivityLogEntry[]> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+    const sinceDate = new Date();
+    sinceDate.setDate(sinceDate.getDate() - sinceDaysAgo);
+    const { data, error } = await supabase
+      .from("activity_log")
+      .select("*")
+      .eq("merchant_id", merchant.id)
+      .gte("created_at", sinceDate.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      console.error("activityApi.forMerchant error:", error);
+      return [];
+    }
+
+    // Batch-fetch customer names
+    const customerIds = [...new Set((data ?? []).map((a) => a.customer_id))];
+    let nameMap = new Map<string, string>();
+    if (customerIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", customerIds);
+      for (const p of profiles ?? []) {
+        nameMap.set(p.id, p.full_name ?? "Customer");
+      }
+    }
+
+    return (data ?? []).map((a) => ({
+      ...a,
+      customer_name: nameMap.get(a.customer_id) ?? "Customer",
+    })) as any;
+  },
+
+  /** Customer's view: their own activity */
+  forCustomer: async (limit = 30): Promise<ActivityLogEntry[]> => {
+    const userId = await getCurrentUserId();
+    const { data, error } = await supabase
+      .from("activity_log")
+      .select("*, merchant_profiles(store_name)")
+      .eq("customer_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as any;
   },
 };

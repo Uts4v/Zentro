@@ -2,11 +2,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Plus, Pencil, Trash2, X, Check, AlertCircle, Loader2,
-  Gift, Stamp, Trophy, QrCode,
+  Gift, Stamp, Trophy, QrCode, Clock,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { loyaltyApi } from "@/lib/api";
+import { loyaltyApi, activityApi, type ActivityLogEntry } from "@/lib/api";
 
 export const Route = createFileRoute("/merchant/loyalty")({
   head: () => ({ meta: [{ title: "Loyalty · Merchant · Zentro" }] }),
@@ -60,7 +60,7 @@ interface RedeemResult {
   customer_name?: string;
   mission_title?: string;
   reward_label?: string;
-  points_deducted?: number;
+  reward_name?: string;
   new_balance?: number;
 }
 
@@ -104,7 +104,7 @@ async function getMerchantData(): Promise<{
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function MerchantLoyalty() {
-  const [tab, setTab] = useState<"punchcard" | "missions" | "rewards" | "redeem">("punchcard");
+  const [tab, setTab] = useState<"punchcard" | "missions" | "rewards" | "redeem" | "activity">("punchcard");
 
   // Punch card state
   const [punchesConfig, setPunchesConfig] = useState(5);
@@ -139,6 +139,13 @@ function MerchantLoyalty() {
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemLoading, setRedeemLoading] = useState(false);
   const [redeemResult, setRedeemResult] = useState<RedeemResult | null>(null);
+
+  // Activity log state
+  const [activity, setActivity] = useState<(ActivityLogEntry & { customer_name?: string })[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityFilter, setActivityFilter] = useState<string>("all");
+  const [activityRange, setActivityRange] = useState(60);
 
   // Load punch card config + missions + pending claims
   useEffect(() => {
@@ -211,6 +218,19 @@ function MerchantLoyalty() {
       .catch((e: any) => setRewardsError(e.message))
       .finally(() => setRewardsLoading(false));
   }, []);
+
+  // Load activity log
+  const loadActivity = (days?: number) => {
+    const range = days ?? activityRange;
+    if (days !== undefined) setActivityRange(range);
+    setActivityLoading(true);
+    activityApi
+      .forMerchant(200, range)
+      .then((data) => setActivity(data as any))
+      .catch(() => setActivity([]))
+      .finally(() => setActivityLoading(false));
+  };
+  useEffect(() => { loadActivity(60); }, []);
 
   // ── Punch card config ───────────────────────────────────────────────────────
 
@@ -345,7 +365,7 @@ function MerchantLoyalty() {
       const { data, error } = await supabase.rpc("confirm_punch_claim", {
         p_code: redeemCode.trim().toUpperCase(),
       });
-      if (!error && data) {
+      if (!error && data && (data as any).success) {
         const result = data as any;
         setRedeemResult({
           success: true,
@@ -353,6 +373,19 @@ function MerchantLoyalty() {
           customer_name: result.customer_name,
           reward_label: result.reward_label,
         });
+        // Log activity for merchant history
+        if (result.customer_id) {
+          const merchantId = await getMerchantId();
+          const { error: logErr } = await supabase.from("activity_log").insert({
+            customer_id: result.customer_id,
+            merchant_id: merchantId,
+            activity_type: "punch_reward_claimed",
+            title: "Punch card reward confirmed",
+            description: `${result.customer_name ?? "Customer"} claimed punch card reward — ${result.reward_label ?? "Free item"}`,
+            metadata: { code: redeemCode.trim().toUpperCase() },
+          });
+          if (logErr) console.error("activity_log insert failed:", logErr.message);
+        }
         setRedeemCode("");
         setRedeemLoading(false);
         return;
@@ -361,12 +394,13 @@ function MerchantLoyalty() {
 
     // Fall back to points redemption
     try {
-      const res = await loyaltyApi.confirmRedemption(redeemCode.trim());
+      const merchantId = await getMerchantId();
+      const res = await loyaltyApi.confirmRedemption(redeemCode.trim(), merchantId);
       setRedeemResult({
         success: true,
         message: "Redeemed",
         customer_name: res.customer_name,
-        points_deducted: res.points_deducted,
+        reward_name: res.reward_name,
       });
       setRedeemCode("");
     } catch (e: any) {
@@ -487,7 +521,7 @@ function MerchantLoyalty() {
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-2xl bg-mist p-1 overflow-x-auto">
-        {(["punchcard", "missions", "rewards", "redeem"] as const).map((t) => (
+        {(["punchcard", "missions", "rewards", "redeem", "activity"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -978,13 +1012,163 @@ function MerchantLoyalty() {
                     <p className="mt-0.5 text-xs text-emerald-600">
                       {redeemResult.customer_name}
                       {redeemResult.reward_label ? ` · ${redeemResult.reward_label}` : ""}
-                      {redeemResult.points_deducted ? ` · −${redeemResult.points_deducted} pts` : ""}
+                      {redeemResult.reward_name || redeemResult.reward_label ? ` · ${redeemResult.reward_name || redeemResult.reward_label}` : ""}
                     </p>
                   )}
                 </div>
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {/* ── ACTIVITY TAB ── */}
+      {tab === "activity" && (
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-2xl text-ink">Activity History</h2>
+              <p className="text-xs text-muted-foreground">All customer activity at your store.</p>
+            </div>
+            <button
+              onClick={() => loadActivity()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-mist px-3 text-xs font-medium text-muted-foreground hover:text-ink"
+            >
+              <Loader2 className={`h-3.5 w-3.5 ${activityLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+
+          {/* Search bar */}
+          <div className="mb-3">
+            <input
+              value={activitySearch}
+              onChange={(e) => setActivitySearch(e.target.value)}
+              placeholder="Search by customer name..."
+              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-ink placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ink/20"
+            />
+          </div>
+
+          {/* Category filter chips */}
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+            {[
+              { key: "all", label: "All" },
+              { key: "mission_completed", label: "🏆 Missions" },
+              { key: "reward_redeemed", label: "🎁 Rewards" },
+              { key: "punch_reward_claimed", label: "👊 Punch Card" },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setActivityFilter(f.key)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activityFilter === f.key
+                    ? "bg-ink text-white"
+                    : "bg-mist text-muted-foreground hover:text-ink"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Date range filter chips */}
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+            {[
+              { label: "Today", days: 1 },
+              { label: "This Week", days: 7 },
+              { label: "This Month", days: 30 },
+              { label: "Last 2 Months", days: 60 },
+              { label: "All Time", days: 3650 },
+            ].map((r) => (
+              <button
+                key={r.days}
+                onClick={() => loadActivity(r.days)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activityRange === r.days
+                    ? "bg-ember text-white"
+                    : "bg-mist text-muted-foreground hover:text-ink"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+
+          {activityLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : activity.length === 0 ? (
+            <EmptyState icon="📋" title="No activity yet" sub="Activity will appear as customers interact." />
+          ) : (() => {
+            const filtered = activity.filter((a) => {
+              const matchesFilter = activityFilter === "all" || a.activity_type === activityFilter;
+              const name = (a as any).customer_name ?? "";
+              const matchesSearch = !activitySearch || name.toLowerCase().includes(activitySearch.toLowerCase()) || a.title.toLowerCase().includes(activitySearch.toLowerCase());
+              return matchesFilter && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="glass rounded-3xl py-12 text-center">
+                  <p className="text-4xl">🔍</p>
+                  <p className="mt-3 text-sm text-muted-foreground">No matching activity found.</p>
+                </div>
+              );
+            }
+
+            // Group by date
+            const grouped: Record<string, typeof filtered> = {};
+            for (const a of filtered) {
+              const date = new Date(a.created_at).toLocaleDateString();
+              if (!grouped[date]) grouped[date] = [];
+              grouped[date].push(a);
+            }
+
+            return (
+              <div className="space-y-4">
+                {Object.entries(grouped).map(([date, items]) => (
+                  <div key={date}>
+                    <p className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">{date}</p>
+                    <div className="space-y-2">
+                      {items.map((a) => (
+                        <div key={a.id} className="glass rounded-2xl p-4 flex items-start gap-3">
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-mist text-lg">
+                            {a.activity_type === "mission_completed" ? "🏆" :
+                             a.activity_type === "reward_redeemed" ? "🎁" :
+                             a.activity_type === "punch_reward_claimed" ? "👊" :
+                             a.activity_type === "order_placed" ? "🛒" : "📋"}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-ink">{a.title}</p>
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                a.activity_type === "mission_completed" ? "bg-emerald-50 text-emerald-700" :
+                                a.activity_type === "reward_redeemed" ? "bg-purple-50 text-purple-700" :
+                                a.activity_type === "punch_reward_claimed" ? "bg-orange-50 text-orange-700" :
+                                "bg-blue-50 text-blue-700"
+                              }`}>
+                                {a.activity_type === "mission_completed" ? "Mission" :
+                                 a.activity_type === "reward_redeemed" ? "Reward" :
+                                 a.activity_type === "punch_reward_claimed" ? "Punch Card" :
+                                 "Order"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{a.description}</p>
+                            <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <span className="font-medium text-ink">{(a as any).customer_name ?? "Customer"}</span>
+                              <span>·</span>
+                              <span>{new Date(a.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </section>
       )}
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { rewardApi, customerApi, type Reward } from "@/lib/api";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { Lock } from "lucide-react";
+import { Lock, Copy, Check, X, Ticket } from "lucide-react";
 import { requireAuth } from "@/lib/auth-guard";
 import { useEffect, useState } from "react";
 
@@ -17,6 +17,9 @@ function Rewards() {
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const [confirmationCode, setConfirmationCode] = useState<string | null>(null);
+  const [redeemedRewardName, setRedeemedRewardName] = useState<string>("");
+  const [codeCopied, setCodeCopied] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -25,14 +28,14 @@ function Rewards() {
     ]).finally(() => setLoading(false));
   }, []);
 
-  const handleRedeem = async (rewardId: string) => {
-    setRedeeming(rewardId);
+  const handleRedeem = async (reward: Reward) => {
+    setRedeeming(reward.id);
     try {
-      await rewardApi.redeem(rewardId);
+      const redemption = await rewardApi.redeem(reward.id);
       const profile = await customerApi.profile();
       setPoints(profile.loyalty_points);
-      setSuccessId(rewardId);
-      setTimeout(() => setSuccessId(null), 2000);
+      setRedeemedRewardName(reward.name);
+      setConfirmationCode(redemption.code);
     } catch (e: any) {
       alert(e.message || "Failed to redeem. Do you have enough points?");
     } finally {
@@ -85,7 +88,7 @@ function Rewards() {
                 <span className="font-display text-xl text-ink">{r.points_cost} pts</span>
                 <button
                   disabled={!affordable || isRedeeming}
-                  onClick={() => handleRedeem(r.id)}
+                  onClick={() => handleRedeem(r)}
                   className={`rounded-full px-3 py-1.5 text-[11px] font-medium uppercase tracking-widest transition-all ${
                     justRedeemed
                       ? "bg-emerald-500 text-white"
@@ -101,6 +104,48 @@ function Rewards() {
           );
         })}
       </div>
+      {/* Confirmation code modal */}
+      {confirmationCode && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-5">
+          <div className="glass-strong relative w-full max-w-sm rounded-3xl p-8 text-center">
+            <button
+              onClick={() => { setConfirmationCode(null); setCodeCopied(false); }}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-ink"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full gradient-ember">
+              <Ticket className="h-8 w-8 text-white" />
+            </div>
+            <h2 className="font-display mt-4 text-2xl text-ink">Reward Redeemed!</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{redeemedRewardName}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Show this code to the merchant to collect your reward.
+            </p>
+            <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-ink px-5 py-4">
+              <span className="font-mono text-3xl font-bold tracking-[0.3em] text-primary-foreground">
+                {confirmationCode}
+              </span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(confirmationCode);
+                  setCodeCopied(true);
+                  setTimeout(() => setCodeCopied(false), 1500);
+                }}
+                className="ml-2 rounded-full bg-white/15 p-2 text-white hover:bg-white/25 transition-colors"
+              >
+                {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+            <button
+              onClick={() => { setConfirmationCode(null); setCodeCopied(false); }}
+              className="mt-5 w-full rounded-full bg-mist py-2.5 text-sm font-medium text-ink hover:bg-mist/80 transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </MobileShell>
   );
 }
