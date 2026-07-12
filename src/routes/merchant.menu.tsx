@@ -1,7 +1,7 @@
 // src/routes/merchant/menu.tsx
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
-import { Plus, Pencil, Trash2, Eye, EyeOff, Star, X, Check, Loader2, ImageIcon, Upload } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, Star, X, Check, Loader2, ImageIcon, Upload, Search } from "lucide-react";
 import { menuApi, merchantApi, type MenuItem } from "@/lib/api";
 import { optimizeImage } from "@/lib/image-optimize";
 import { uploadImage } from "@/lib/image-upload";
@@ -60,6 +60,7 @@ function MerchantMenu() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const [filterCat, setFilterCat] = useState("All");
+  const [search, setSearch] = useState("");
 
   const [imgState, setImgState] = useState<ImgStatus>({ status: "idle" });
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -209,7 +210,18 @@ function MerchantMenu() {
   }
 
   const categories = ["All", ...Array.from(new Set(items.map((i) => i.category).filter(Boolean)))];
-  const visible = filterCat === "All" ? items : items.filter((i) => i.category === filterCat);
+
+  const searchFiltered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.description ?? "").toLowerCase().includes(q)
+    );
+  }, [items, search]);
+
+  const visible = filterCat === "All" ? searchFiltered : searchFiltered.filter((i) => i.category === filterCat);
 
   const imgUploading = imgState.status === "processing" || imgState.status === "uploading";
   const imgPreviewUrl =
@@ -255,6 +267,24 @@ function MerchantMenu() {
         </div>
       )}
 
+      {/* Search bar */}
+      <div className="flex items-center gap-2">
+        <div className="glass-strong flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search menu items…"
+            className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted-foreground/70"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="shrink-0 text-muted-foreground hover:text-ink">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: "Total items", value: items.length },
@@ -276,7 +306,11 @@ function MerchantMenu() {
         <div className="glass rounded-3xl py-16 text-center">
           <p className="text-4xl">🍵</p>
           <p className="mt-3 text-sm text-muted-foreground">
-            {filterCat === "All" ? "No items yet — add your first one." : `No items in "${filterCat}".`}
+            {search.trim()
+              ? "No items match your search."
+              : filterCat === "All"
+                ? "No items yet — add your first one."
+                : `No items in "${filterCat}".`}
           </p>
         </div>
       ) : (

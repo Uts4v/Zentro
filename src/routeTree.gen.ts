@@ -30,6 +30,7 @@ import { Route as MerchantStoreRouteImport } from './routes/merchant.store'
 import { Route as MerchantRetailRouteImport } from './routes/merchant.retail'
 import { Route as MerchantOrdersRouteImport } from './routes/merchant.orders'
 import { Route as MerchantMenuRouteImport } from './routes/merchant.menu'
+import { Route as MerchantMembersRouteImport } from './routes/merchant.members'
 import { Route as MerchantLoyaltyRouteImport } from './routes/merchant.loyalty'
 import { Route as MerchantAnalyticsRouteImport } from './routes/merchant.analytics'
 import { Route as CustomerOrdersRouteImport } from './routes/customer.orders'
@@ -148,6 +149,11 @@ const MerchantMenuRoute = MerchantMenuRouteImport.update({
   path: '/menu',
   getParentRoute: () => MerchantRoute,
 } as any)
+const MerchantMembersRoute = MerchantMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => MerchantRoute,
+} as any)
 const MerchantLoyaltyRoute = MerchantLoyaltyRouteImport.update({
   id: '/loyalty',
   path: '/loyalty',
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/customer/orders': typeof CustomerOrdersRoute
   '/merchant/analytics': typeof MerchantAnalyticsRoute
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
+  '/merchant/members': typeof MerchantMembersRoute
   '/merchant/menu': typeof MerchantMenuRoute
   '/merchant/orders': typeof MerchantOrdersRoute
   '/merchant/retail': typeof MerchantRetailRoute
@@ -266,6 +273,7 @@ export interface FileRoutesByTo {
   '/customer/orders': typeof CustomerOrdersRoute
   '/merchant/analytics': typeof MerchantAnalyticsRoute
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
+  '/merchant/members': typeof MerchantMembersRoute
   '/merchant/menu': typeof MerchantMenuRoute
   '/merchant/orders': typeof MerchantOrdersRoute
   '/merchant/retail': typeof MerchantRetailRoute
@@ -302,6 +310,7 @@ export interface FileRoutesById {
   '/customer/orders': typeof CustomerOrdersRoute
   '/merchant/analytics': typeof MerchantAnalyticsRoute
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
+  '/merchant/members': typeof MerchantMembersRoute
   '/merchant/menu': typeof MerchantMenuRoute
   '/merchant/orders': typeof MerchantOrdersRoute
   '/merchant/retail': typeof MerchantRetailRoute
@@ -339,6 +348,7 @@ export interface FileRouteTypes {
     | '/customer/orders'
     | '/merchant/analytics'
     | '/merchant/loyalty'
+    | '/merchant/members'
     | '/merchant/menu'
     | '/merchant/orders'
     | '/merchant/retail'
@@ -372,6 +382,7 @@ export interface FileRouteTypes {
     | '/customer/orders'
     | '/merchant/analytics'
     | '/merchant/loyalty'
+    | '/merchant/members'
     | '/merchant/menu'
     | '/merchant/orders'
     | '/merchant/retail'
@@ -407,6 +418,7 @@ export interface FileRouteTypes {
     | '/customer/orders'
     | '/merchant/analytics'
     | '/merchant/loyalty'
+    | '/merchant/members'
     | '/merchant/menu'
     | '/merchant/orders'
     | '/merchant/retail'
@@ -593,6 +605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MerchantMenuRouteImport
       parentRoute: typeof MerchantRoute
     }
+    '/merchant/members': {
+      id: '/merchant/members'
+      path: '/members'
+      fullPath: '/merchant/members'
+      preLoaderRoute: typeof MerchantMembersRouteImport
+      parentRoute: typeof MerchantRoute
+    }
     '/merchant/loyalty': {
       id: '/merchant/loyalty'
       path: '/loyalty'
@@ -699,6 +718,7 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 interface MerchantRouteChildren {
   MerchantAnalyticsRoute: typeof MerchantAnalyticsRoute
   MerchantLoyaltyRoute: typeof MerchantLoyaltyRoute
+  MerchantMembersRoute: typeof MerchantMembersRoute
   MerchantMenuRoute: typeof MerchantMenuRoute
   MerchantOrdersRoute: typeof MerchantOrdersRoute
   MerchantRetailRoute: typeof MerchantRetailRoute
@@ -710,6 +730,7 @@ interface MerchantRouteChildren {
 const MerchantRouteChildren: MerchantRouteChildren = {
   MerchantAnalyticsRoute: MerchantAnalyticsRoute,
   MerchantLoyaltyRoute: MerchantLoyaltyRoute,
+  MerchantMembersRoute: MerchantMembersRoute,
   MerchantMenuRoute: MerchantMenuRoute,
   MerchantOrdersRoute: MerchantOrdersRoute,
   MerchantRetailRoute: MerchantRetailRoute,

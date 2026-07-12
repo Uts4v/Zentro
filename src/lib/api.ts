@@ -132,6 +132,23 @@ export interface CustomerProfile {
   total_orders: number;
 }
 
+export interface MerchantMember {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  points: number;
+  streak: number;
+  tier: string;
+  created_at: string;
+  total_orders: number;
+  total_spent: number;
+  points_earned: number;
+  last_order_at: string | null;
+  punch_count: number;
+  punches_to_free: number;
+  free_reward_available: boolean;
+}
+
 export interface Mission {
   id: string;
   merchant_id: string;
@@ -581,6 +598,84 @@ export const merchantApi = {
       .single();
     if (error) throw new Error(error.message);
     return data as MerchantProfile;
+  },
+
+  members: async (): Promise<MerchantMember[]> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+
+    // 1. Get unique customer IDs from orders
+    const { data: orderRows, error: orderErr } = await supabase
+      .from("orders")
+      .select("customer_id")
+      .eq("merchant_id", merchant.id);
+    if (orderErr) throw new Error(orderErr.message);
+
+    const customerIds = [...new Set((orderRows ?? []).map((r) => r.customer_id).filter(Boolean))];
+    if (customerIds.length === 0) return [];
+
+    // 2. Fetch profiles for those customers
+    const { data: profiles, error: profErr } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, points, streak, tier")
+      .in("id", customerIds);
+    if (profErr) throw new Error(profErr.message);
+
+    // 3. Fetch order aggregates per customer
+    const { data: orderStats, error: statsErr } = await supabase
+      .from("orders")
+      .select("customer_id, total_amount, points_earned, status, created_at")
+      .eq("merchant_id", merchant.id)
+      .in("customer_id", customerIds);
+    if (statsErr) throw new Error(statsErr.message);
+
+    // 4. Fetch punch cards
+    const { data: punchCards } = await supabase
+      .from("punch_cards")
+      .select("customer_id, punch_count, punches_to_free, free_reward_available")
+      .eq("merchant_id", merchant.id)
+      .in("customer_id", customerIds);
+
+    const pcMap = new Map((punchCards ?? []).map((pc) => [pc.customer_id, pc]));
+
+    // 5. Aggregate
+    const statsMap = new Map<string, { count: number; spent: number; earned: number; lastAt: string | null; firstAt: string | null }>();
+    (orderStats ?? []).forEach((o) => {
+      const existing = statsMap.get(o.customer_id) ?? { count: 0, spent: 0, earned: 0, lastAt: null, firstAt: null };
+      if (o.status === "completed" || o.status === "ready" || o.status === "confirmed" || o.status === "preparing") {
+        existing.count += 1;
+        existing.spent += Number(o.total_amount) || 0;
+        existing.earned += o.points_earned || 0;
+      }
+      if (!existing.lastAt || o.created_at > existing.lastAt) {
+        existing.lastAt = o.created_at;
+      }
+      if (!existing.firstAt || o.created_at < existing.firstAt) {
+        existing.firstAt = o.created_at;
+      }
+      statsMap.set(o.customer_id, existing);
+    });
+
+    return (profiles ?? []).map((p) => {
+      const s = statsMap.get(p.id) ?? { count: 0, spent: 0, earned: 0, lastAt: null, firstAt: null };
+      const pc = pcMap.get(p.id);
+      return {
+        id: p.id,
+        full_name: p.full_name,
+        avatar_url: p.avatar_url,
+        points: p.points ?? 0,
+        streak: p.streak ?? 0,
+        tier: p.tier ?? "Bronze",
+        created_at: s.firstAt ?? new Date().toISOString(),
+        total_orders: s.count,
+        total_spent: s.spent,
+        points_earned: s.earned,
+        last_order_at: s.lastAt,
+        punch_count: pc?.punch_count ?? 0,
+        punches_to_free: pc?.punches_to_free ?? 5,
+        free_reward_available: pc?.free_reward_available ?? false,
+      };
+    }).sort((a, b) => b.total_orders - a.total_orders);
   },
 };
 

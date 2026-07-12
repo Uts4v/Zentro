@@ -4,7 +4,7 @@ import { MobileShell, TopBar } from "@/components/MobileShell";
 import { requireAuth } from "@/lib/auth-guard";
 import {
   Plus, Minus, X, ShoppingBag, Loader2, Star,
-  Package, Truck, Phone, MapPin, Zap,
+  Package, Truck, Phone, MapPin, Zap, Search,
 } from "lucide-react";
 import { retailApi, merchantApi, type RetailProduct, type MerchantProfile } from "@/lib/api";
 import { useState, useEffect, useMemo } from "react";
@@ -28,6 +28,7 @@ function RetailShop() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [filterCat, setFilterCat] = useState("All");
+  const [search, setSearch] = useState("");
   const [placing, setPlacing] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -82,9 +83,19 @@ function RetailShop() {
 
   const cartCount = cart.reduce((s, c) => s + c.qty, 0);
 
+  const searchFiltered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.description ?? "").toLowerCase().includes(q)
+    );
+  }, [products, search]);
+
   const categoryOrder = useMemo(() => {
     const seen: string[] = [];
-    products.forEach((p) => {
+    searchFiltered.forEach((p) => {
       const cat = p.category?.trim() || "Other";
       if (!seen.includes(cat)) seen.push(cat);
     });
@@ -96,19 +107,19 @@ function RetailShop() {
       return 0;
     });
     return seen;
-  }, [products]);
+  }, [searchFiltered]);
 
   const categories = ["All", ...categoryOrder];
 
   const groupedProducts = useMemo(() => {
     const groups: Record<string, RetailProduct[]> = {};
-    products.forEach((p) => {
+    searchFiltered.forEach((p) => {
       const cat = p.category?.trim() || "Other";
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(p);
     });
     return groups;
-  }, [products]);
+  }, [searchFiltered]);
 
   const visibleCategories = filterCat === "All"
     ? categoryOrder
@@ -203,6 +214,24 @@ function RetailShop() {
         </div>
       </section>
 
+      {/* Search bar */}
+      <section className="mt-4 px-5">
+        <div className="glass-strong flex items-center gap-2 rounded-2xl px-4 py-2.5">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search retail products…"
+            className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted-foreground/70"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="shrink-0 text-muted-foreground hover:text-ink">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* Category tabs */}
       {categories.length > 1 && (
         <div className="no-scrollbar mt-5 flex gap-2 overflow-x-auto px-5 pb-1">
@@ -236,6 +265,11 @@ function RetailShop() {
           <div className="glass rounded-3xl py-16 text-center">
             <p className="text-4xl">🫖</p>
             <p className="mt-3 text-sm text-muted-foreground">No retail products available yet</p>
+          </div>
+        ) : searchFiltered.length === 0 ? (
+          <div className="glass rounded-3xl py-16 text-center">
+            <p className="text-4xl">🔍</p>
+            <p className="mt-3 text-sm text-muted-foreground">No products match your search</p>
           </div>
         ) : (
           <div className="space-y-8">

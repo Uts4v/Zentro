@@ -1,10 +1,10 @@
 // routes/merchant.retails.tsx 
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Star, X, Check,
   Loader2, ImageIcon, Upload, Package, ShoppingBag,
-  RefreshCw, Clock, ChevronDown, ChevronUp,
+  RefreshCw, Clock, ChevronDown, ChevronUp, Search,
 } from "lucide-react";
 import { retailApi, type RetailProduct, type RetailOrder, type OrderStatus } from "@/lib/api";
 import { uploadImage } from "@/lib/image-upload";
@@ -80,6 +80,7 @@ function MerchantRetail() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const [filterCat, setFilterCat] = useState("All");
+  const [search, setSearch] = useState("");
   const [imgState, setImgState] = useState<ImgStatus>({ status: "idle" });
   const imgInputRef = useRef<HTMLInputElement>(null);
 
@@ -261,7 +262,18 @@ function MerchantRetail() {
   }
 
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))];
-  const visible = filterCat === "All" ? products : products.filter((p) => p.category === filterCat);
+
+  const searchFiltered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.description ?? "").toLowerCase().includes(q)
+    );
+  }, [products, search]);
+
+  const visible = filterCat === "All" ? searchFiltered : searchFiltered.filter((p) => p.category === filterCat);
   const imgUploading = imgState.status === "processing" || imgState.status === "uploading";
   const imgPreviewUrl =
     imgState.status === "uploading" || imgState.status === "done"
@@ -359,6 +371,24 @@ function MerchantRetail() {
             </div>
           )}
 
+          {/* Search bar */}
+          <div className="flex items-center gap-2">
+            <div className="glass-strong flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search retail products…"
+                className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted-foreground/70"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="shrink-0 text-muted-foreground hover:text-ink">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {productsLoading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -367,9 +397,11 @@ function MerchantRetail() {
             <div className="glass rounded-3xl py-16 text-center">
               <p className="text-4xl">🍵</p>
               <p className="mt-3 text-sm text-muted-foreground">
-                {filterCat === "All"
-                  ? "No retail products yet — add your first one."
-                  : `No products in "${filterCat}".`}
+                {search.trim()
+                  ? "No products match your search."
+                  : filterCat === "All"
+                    ? "No retail products yet — add your first one."
+                    : `No products in "${filterCat}".`}
               </p>
             </div>
           ) : (
