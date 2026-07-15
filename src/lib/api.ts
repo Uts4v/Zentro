@@ -51,6 +51,18 @@ export interface Order {
   order_type?: "dine_in" | "pickup" | "delivery";
   table_id?: string | null;
   table_name_snapshot?: string;
+  is_walk_in?: boolean;
+  walk_in_name?: string;
+  processed_by?: string;
+  payment_method?: string;
+  cash_received?: number;
+  fonepay_amount?: number;
+  receipt_number?: string;
+  paid_at?: string;
+  payment_status?: string;
+  discount_type?: "amount" | "percent" | null;
+  discount_value?: number | null;
+  discount_amount?: number | null;
   created_at: string;
   updated_at: string;
   order_items: OrderItem[];
@@ -332,7 +344,7 @@ export const orderApi = {
     const merchant = await getMerchantProfile(userId);
     let query = supabase
       .from("orders")
-      .select("*, order_items(*), profiles(full_name)")
+      .select("*, order_items(*), profiles:customer_id(full_name)")
       .eq("merchant_id", merchant.id)
       .order("created_at", { ascending: false });
     if (filterStatus) query = query.eq("status", filterStatus);
@@ -369,7 +381,7 @@ export const orderApi = {
       // Fetch the full order with items
       const { data: order, error: fetchErr } = await supabase
         .from("orders")
-        .select("*, order_items(*), profiles(full_name), merchant_profiles(store_name)")
+        .select("*, order_items(*), profiles:customer_id(full_name), merchant_profiles(store_name)")
         .eq("id", orderId)
         .single();
       if (fetchErr || !order) throw new Error(fetchErr?.message ?? "Failed to fetch order");
@@ -473,7 +485,7 @@ export const orderApi = {
       .from("orders")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .select("*, order_items(*), profiles(full_name)")
+      .select("*, order_items(*), profiles:customer_id(full_name)")
       .single();
     if (error) throw new Error(error.message);
 
@@ -576,7 +588,7 @@ export const orderApi = {
   get: async (id: string): Promise<Order> => {
     const { data, error } = await supabase
       .from("orders")
-      .select("*, order_items(*), profiles(full_name), merchant_profiles(store_name)")
+      .select("*, order_items(*), profiles:customer_id(full_name), merchant_profiles(store_name)")
       .eq("id", id)
       .single();
     if (error) throw new Error(error.message);

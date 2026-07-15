@@ -248,3 +248,49 @@
 @utility float-soft {
   animation: float-soft 6s ease-in-out infinite;
 }
+
+/* ── Print styles for POS receipts ───────────────────────────────────────── */
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .receipt,
+  .receipt * {
+    visibility: visible;
+  }
+
+  .receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    padding: 4mm;
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    background: white;
+    color: black;
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+  }
+
+  .receipt * {
+    color: black !important;
+    background: transparent !important;
+  }
+
+  .print-preserve {
+    width: 80mm;
+  }
+
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

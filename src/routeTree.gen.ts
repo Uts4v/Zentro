@@ -13,6 +13,7 @@ import { Route as StoresRouteImport } from './routes/stores'
 import { Route as RewardsRouteImport } from './routes/rewards'
 import { Route as RetailRouteImport } from './routes/retail'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PosRouteImport } from './routes/pos'
 import { Route as MissionsRouteImport } from './routes/missions'
 import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as LoyaltyRouteImport } from './routes/loyalty'
@@ -20,21 +21,29 @@ import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PosIndexRouteImport } from './routes/pos.index'
 import { Route as MerchantIndexRouteImport } from './routes/merchant.index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StoresIdRouteImport } from './routes/stores_.$id'
+import { Route as PosShiftRouteImport } from './routes/pos.shift'
+import { Route as PosCreditRouteImport } from './routes/pos.credit'
 import { Route as OrdersIdRouteImport } from './routes/orders.$id'
 import { Route as MerchantTablesRouteImport } from './routes/merchant.tables'
 import { Route as MerchantStoreRouteImport } from './routes/merchant.store'
+import { Route as MerchantShiftsRouteImport } from './routes/merchant.shifts'
+import { Route as MerchantShiftWorkersRouteImport } from './routes/merchant.shift-workers'
 import { Route as MerchantRetailRouteImport } from './routes/merchant.retail'
 import { Route as MerchantOrdersRouteImport } from './routes/merchant.orders'
 import { Route as MerchantMenuRouteImport } from './routes/merchant.menu'
 import { Route as MerchantMembersRouteImport } from './routes/merchant.members'
 import { Route as MerchantLoyaltyRouteImport } from './routes/merchant.loyalty'
+import { Route as MerchantDailyReportRouteImport } from './routes/merchant.daily-report'
+import { Route as MerchantCreditRouteImport } from './routes/merchant.credit'
 import { Route as MerchantAnalyticsRouteImport } from './routes/merchant.analytics'
 import { Route as CustomerOrdersRouteImport } from './routes/customer.orders'
 import { Route as CustomerOrderRouteImport } from './routes/customer.order'
+import { Route as AuthShiftRouteImport } from './routes/auth.shift'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
 import { Route as AuthMerchantRouteImport } from './routes/auth/merchant'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
@@ -42,6 +51,11 @@ import { Route as AuthAdminRouteImport } from './routes/auth/admin'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminMerchantsRouteImport } from './routes/admin.merchants'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as PosPaymentOrderIdRouteImport } from './routes/pos.payment.$orderId'
+import { Route as PosOrdersNewRouteImport } from './routes/pos.orders.new'
+import { Route as PosBillOrderIdRouteImport } from './routes/pos.bill.$orderId'
+import { Route as MerchantShiftReportShiftIdRouteImport } from './routes/merchant.shift-report.$shiftId'
+import { Route as PosPaymentOrderIdReceiptRouteImport } from './routes/pos.payment.$orderId.receipt'
 import { Route as MMerchantSlugTableTableTokenRouteImport } from './routes/m/$merchantSlug/table/$tableToken'
 
 const StoresRoute = StoresRouteImport.update({
@@ -62,6 +76,11 @@ const RetailRoute = RetailRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PosRoute = PosRouteImport.update({
+  id: '/pos',
+  path: '/pos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MissionsRoute = MissionsRouteImport.update({
@@ -99,6 +118,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PosIndexRoute = PosIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PosRoute,
+} as any)
 const MerchantIndexRoute = MerchantIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -119,6 +143,16 @@ const StoresIdRoute = StoresIdRouteImport.update({
   path: '/stores/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PosShiftRoute = PosShiftRouteImport.update({
+  id: '/shift',
+  path: '/shift',
+  getParentRoute: () => PosRoute,
+} as any)
+const PosCreditRoute = PosCreditRouteImport.update({
+  id: '/credit',
+  path: '/credit',
+  getParentRoute: () => PosRoute,
+} as any)
 const OrdersIdRoute = OrdersIdRouteImport.update({
   id: '/orders/$id',
   path: '/orders/$id',
@@ -132,6 +166,16 @@ const MerchantTablesRoute = MerchantTablesRouteImport.update({
 const MerchantStoreRoute = MerchantStoreRouteImport.update({
   id: '/store',
   path: '/store',
+  getParentRoute: () => MerchantRoute,
+} as any)
+const MerchantShiftsRoute = MerchantShiftsRouteImport.update({
+  id: '/shifts',
+  path: '/shifts',
+  getParentRoute: () => MerchantRoute,
+} as any)
+const MerchantShiftWorkersRoute = MerchantShiftWorkersRouteImport.update({
+  id: '/shift-workers',
+  path: '/shift-workers',
   getParentRoute: () => MerchantRoute,
 } as any)
 const MerchantRetailRoute = MerchantRetailRouteImport.update({
@@ -159,6 +203,16 @@ const MerchantLoyaltyRoute = MerchantLoyaltyRouteImport.update({
   path: '/loyalty',
   getParentRoute: () => MerchantRoute,
 } as any)
+const MerchantDailyReportRoute = MerchantDailyReportRouteImport.update({
+  id: '/daily-report',
+  path: '/daily-report',
+  getParentRoute: () => MerchantRoute,
+} as any)
+const MerchantCreditRoute = MerchantCreditRouteImport.update({
+  id: '/credit',
+  path: '/credit',
+  getParentRoute: () => MerchantRoute,
+} as any)
 const MerchantAnalyticsRoute = MerchantAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -172,6 +226,11 @@ const CustomerOrdersRoute = CustomerOrdersRouteImport.update({
 const CustomerOrderRoute = CustomerOrderRouteImport.update({
   id: '/customer/order',
   path: '/customer/order',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthShiftRoute = AuthShiftRouteImport.update({
+  id: '/auth/shift',
+  path: '/auth/shift',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
@@ -209,6 +268,33 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AdminRoute,
 } as any)
+const PosPaymentOrderIdRoute = PosPaymentOrderIdRouteImport.update({
+  id: '/payment/$orderId',
+  path: '/payment/$orderId',
+  getParentRoute: () => PosRoute,
+} as any)
+const PosOrdersNewRoute = PosOrdersNewRouteImport.update({
+  id: '/orders/new',
+  path: '/orders/new',
+  getParentRoute: () => PosRoute,
+} as any)
+const PosBillOrderIdRoute = PosBillOrderIdRouteImport.update({
+  id: '/bill/$orderId',
+  path: '/bill/$orderId',
+  getParentRoute: () => PosRoute,
+} as any)
+const MerchantShiftReportShiftIdRoute =
+  MerchantShiftReportShiftIdRouteImport.update({
+    id: '/shift-report/$shiftId',
+    path: '/shift-report/$shiftId',
+    getParentRoute: () => MerchantRoute,
+  } as any)
+const PosPaymentOrderIdReceiptRoute =
+  PosPaymentOrderIdReceiptRouteImport.update({
+    id: '/receipt',
+    path: '/receipt',
+    getParentRoute: () => PosPaymentOrderIdRoute,
+  } as any)
 const MMerchantSlugTableTableTokenRoute =
   MMerchantSlugTableTableTokenRouteImport.update({
     id: '/m/$merchantSlug/table/$tableToken',
@@ -224,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/loyalty': typeof LoyaltyRoute
   '/merchant': typeof MerchantRouteWithChildren
   '/missions': typeof MissionsRoute
+  '/pos': typeof PosRouteWithChildren
   '/profile': typeof ProfileRoute
   '/retail': typeof RetailRoute
   '/rewards': typeof RewardsRoute
@@ -235,22 +322,35 @@ export interface FileRoutesByFullPath {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/merchant': typeof AuthMerchantRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/shift': typeof AuthShiftRoute
   '/customer/order': typeof CustomerOrderRoute
   '/customer/orders': typeof CustomerOrdersRoute
   '/merchant/analytics': typeof MerchantAnalyticsRoute
+  '/merchant/credit': typeof MerchantCreditRoute
+  '/merchant/daily-report': typeof MerchantDailyReportRoute
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
   '/merchant/members': typeof MerchantMembersRoute
   '/merchant/menu': typeof MerchantMenuRoute
   '/merchant/orders': typeof MerchantOrdersRoute
   '/merchant/retail': typeof MerchantRetailRoute
+  '/merchant/shift-workers': typeof MerchantShiftWorkersRoute
+  '/merchant/shifts': typeof MerchantShiftsRoute
   '/merchant/store': typeof MerchantStoreRoute
   '/merchant/tables': typeof MerchantTablesRoute
   '/orders/$id': typeof OrdersIdRoute
+  '/pos/credit': typeof PosCreditRoute
+  '/pos/shift': typeof PosShiftRoute
   '/stores/$id': typeof StoresIdRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/merchant/': typeof MerchantIndexRoute
+  '/pos/': typeof PosIndexRoute
+  '/merchant/shift-report/$shiftId': typeof MerchantShiftReportShiftIdRoute
+  '/pos/bill/$orderId': typeof PosBillOrderIdRoute
+  '/pos/orders/new': typeof PosOrdersNewRoute
+  '/pos/payment/$orderId': typeof PosPaymentOrderIdRouteWithChildren
   '/m/$merchantSlug/table/$tableToken': typeof MMerchantSlugTableTableTokenRoute
+  '/pos/payment/$orderId/receipt': typeof PosPaymentOrderIdReceiptRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -269,22 +369,35 @@ export interface FileRoutesByTo {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/merchant': typeof AuthMerchantRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/shift': typeof AuthShiftRoute
   '/customer/order': typeof CustomerOrderRoute
   '/customer/orders': typeof CustomerOrdersRoute
   '/merchant/analytics': typeof MerchantAnalyticsRoute
+  '/merchant/credit': typeof MerchantCreditRoute
+  '/merchant/daily-report': typeof MerchantDailyReportRoute
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
   '/merchant/members': typeof MerchantMembersRoute
   '/merchant/menu': typeof MerchantMenuRoute
   '/merchant/orders': typeof MerchantOrdersRoute
   '/merchant/retail': typeof MerchantRetailRoute
+  '/merchant/shift-workers': typeof MerchantShiftWorkersRoute
+  '/merchant/shifts': typeof MerchantShiftsRoute
   '/merchant/store': typeof MerchantStoreRoute
   '/merchant/tables': typeof MerchantTablesRoute
   '/orders/$id': typeof OrdersIdRoute
+  '/pos/credit': typeof PosCreditRoute
+  '/pos/shift': typeof PosShiftRoute
   '/stores/$id': typeof StoresIdRoute
   '/admin': typeof AdminIndexRoute
   '/auth': typeof AuthIndexRoute
   '/merchant': typeof MerchantIndexRoute
+  '/pos': typeof PosIndexRoute
+  '/merchant/shift-report/$shiftId': typeof MerchantShiftReportShiftIdRoute
+  '/pos/bill/$orderId': typeof PosBillOrderIdRoute
+  '/pos/orders/new': typeof PosOrdersNewRoute
+  '/pos/payment/$orderId': typeof PosPaymentOrderIdRouteWithChildren
   '/m/$merchantSlug/table/$tableToken': typeof MMerchantSlugTableTableTokenRoute
+  '/pos/payment/$orderId/receipt': typeof PosPaymentOrderIdReceiptRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -295,6 +408,7 @@ export interface FileRoutesById {
   '/loyalty': typeof LoyaltyRoute
   '/merchant': typeof MerchantRouteWithChildren
   '/missions': typeof MissionsRoute
+  '/pos': typeof PosRouteWithChildren
   '/profile': typeof ProfileRoute
   '/retail': typeof RetailRoute
   '/rewards': typeof RewardsRoute
@@ -306,22 +420,35 @@ export interface FileRoutesById {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/merchant': typeof AuthMerchantRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/shift': typeof AuthShiftRoute
   '/customer/order': typeof CustomerOrderRoute
   '/customer/orders': typeof CustomerOrdersRoute
   '/merchant/analytics': typeof MerchantAnalyticsRoute
+  '/merchant/credit': typeof MerchantCreditRoute
+  '/merchant/daily-report': typeof MerchantDailyReportRoute
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
   '/merchant/members': typeof MerchantMembersRoute
   '/merchant/menu': typeof MerchantMenuRoute
   '/merchant/orders': typeof MerchantOrdersRoute
   '/merchant/retail': typeof MerchantRetailRoute
+  '/merchant/shift-workers': typeof MerchantShiftWorkersRoute
+  '/merchant/shifts': typeof MerchantShiftsRoute
   '/merchant/store': typeof MerchantStoreRoute
   '/merchant/tables': typeof MerchantTablesRoute
   '/orders/$id': typeof OrdersIdRoute
+  '/pos/credit': typeof PosCreditRoute
+  '/pos/shift': typeof PosShiftRoute
   '/stores_/$id': typeof StoresIdRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/merchant/': typeof MerchantIndexRoute
+  '/pos/': typeof PosIndexRoute
+  '/merchant/shift-report/$shiftId': typeof MerchantShiftReportShiftIdRoute
+  '/pos/bill/$orderId': typeof PosBillOrderIdRoute
+  '/pos/orders/new': typeof PosOrdersNewRoute
+  '/pos/payment/$orderId': typeof PosPaymentOrderIdRouteWithChildren
   '/m/$merchantSlug/table/$tableToken': typeof MMerchantSlugTableTableTokenRoute
+  '/pos/payment/$orderId/receipt': typeof PosPaymentOrderIdReceiptRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -333,6 +460,7 @@ export interface FileRouteTypes {
     | '/loyalty'
     | '/merchant'
     | '/missions'
+    | '/pos'
     | '/profile'
     | '/retail'
     | '/rewards'
@@ -344,22 +472,35 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/merchant'
     | '/auth/reset-password'
+    | '/auth/shift'
     | '/customer/order'
     | '/customer/orders'
     | '/merchant/analytics'
+    | '/merchant/credit'
+    | '/merchant/daily-report'
     | '/merchant/loyalty'
     | '/merchant/members'
     | '/merchant/menu'
     | '/merchant/orders'
     | '/merchant/retail'
+    | '/merchant/shift-workers'
+    | '/merchant/shifts'
     | '/merchant/store'
     | '/merchant/tables'
     | '/orders/$id'
+    | '/pos/credit'
+    | '/pos/shift'
     | '/stores/$id'
     | '/admin/'
     | '/auth/'
     | '/merchant/'
+    | '/pos/'
+    | '/merchant/shift-report/$shiftId'
+    | '/pos/bill/$orderId'
+    | '/pos/orders/new'
+    | '/pos/payment/$orderId'
     | '/m/$merchantSlug/table/$tableToken'
+    | '/pos/payment/$orderId/receipt'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -378,22 +519,35 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/merchant'
     | '/auth/reset-password'
+    | '/auth/shift'
     | '/customer/order'
     | '/customer/orders'
     | '/merchant/analytics'
+    | '/merchant/credit'
+    | '/merchant/daily-report'
     | '/merchant/loyalty'
     | '/merchant/members'
     | '/merchant/menu'
     | '/merchant/orders'
     | '/merchant/retail'
+    | '/merchant/shift-workers'
+    | '/merchant/shifts'
     | '/merchant/store'
     | '/merchant/tables'
     | '/orders/$id'
+    | '/pos/credit'
+    | '/pos/shift'
     | '/stores/$id'
     | '/admin'
     | '/auth'
     | '/merchant'
+    | '/pos'
+    | '/merchant/shift-report/$shiftId'
+    | '/pos/bill/$orderId'
+    | '/pos/orders/new'
+    | '/pos/payment/$orderId'
     | '/m/$merchantSlug/table/$tableToken'
+    | '/pos/payment/$orderId/receipt'
   id:
     | '__root__'
     | '/'
@@ -403,6 +557,7 @@ export interface FileRouteTypes {
     | '/loyalty'
     | '/merchant'
     | '/missions'
+    | '/pos'
     | '/profile'
     | '/retail'
     | '/rewards'
@@ -414,22 +569,35 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/merchant'
     | '/auth/reset-password'
+    | '/auth/shift'
     | '/customer/order'
     | '/customer/orders'
     | '/merchant/analytics'
+    | '/merchant/credit'
+    | '/merchant/daily-report'
     | '/merchant/loyalty'
     | '/merchant/members'
     | '/merchant/menu'
     | '/merchant/orders'
     | '/merchant/retail'
+    | '/merchant/shift-workers'
+    | '/merchant/shifts'
     | '/merchant/store'
     | '/merchant/tables'
     | '/orders/$id'
+    | '/pos/credit'
+    | '/pos/shift'
     | '/stores_/$id'
     | '/admin/'
     | '/auth/'
     | '/merchant/'
+    | '/pos/'
+    | '/merchant/shift-report/$shiftId'
+    | '/pos/bill/$orderId'
+    | '/pos/orders/new'
+    | '/pos/payment/$orderId'
     | '/m/$merchantSlug/table/$tableToken'
+    | '/pos/payment/$orderId/receipt'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -440,6 +608,7 @@ export interface RootRouteChildren {
   LoyaltyRoute: typeof LoyaltyRoute
   MerchantRoute: typeof MerchantRouteWithChildren
   MissionsRoute: typeof MissionsRoute
+  PosRoute: typeof PosRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   RetailRoute: typeof RetailRoute
   RewardsRoute: typeof RewardsRoute
@@ -448,6 +617,7 @@ export interface RootRouteChildren {
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthMerchantRoute: typeof AuthMerchantRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
+  AuthShiftRoute: typeof AuthShiftRoute
   CustomerOrderRoute: typeof CustomerOrderRoute
   CustomerOrdersRoute: typeof CustomerOrdersRoute
   OrdersIdRoute: typeof OrdersIdRoute
@@ -484,6 +654,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pos': {
+      id: '/pos'
+      path: '/pos'
+      fullPath: '/pos'
+      preLoaderRoute: typeof PosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/missions': {
@@ -535,6 +712,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pos/': {
+      id: '/pos/'
+      path: '/'
+      fullPath: '/pos/'
+      preLoaderRoute: typeof PosIndexRouteImport
+      parentRoute: typeof PosRoute
+    }
     '/merchant/': {
       id: '/merchant/'
       path: '/'
@@ -563,6 +747,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoresIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pos/shift': {
+      id: '/pos/shift'
+      path: '/shift'
+      fullPath: '/pos/shift'
+      preLoaderRoute: typeof PosShiftRouteImport
+      parentRoute: typeof PosRoute
+    }
+    '/pos/credit': {
+      id: '/pos/credit'
+      path: '/credit'
+      fullPath: '/pos/credit'
+      preLoaderRoute: typeof PosCreditRouteImport
+      parentRoute: typeof PosRoute
+    }
     '/orders/$id': {
       id: '/orders/$id'
       path: '/orders/$id'
@@ -582,6 +780,20 @@ declare module '@tanstack/react-router' {
       path: '/store'
       fullPath: '/merchant/store'
       preLoaderRoute: typeof MerchantStoreRouteImport
+      parentRoute: typeof MerchantRoute
+    }
+    '/merchant/shifts': {
+      id: '/merchant/shifts'
+      path: '/shifts'
+      fullPath: '/merchant/shifts'
+      preLoaderRoute: typeof MerchantShiftsRouteImport
+      parentRoute: typeof MerchantRoute
+    }
+    '/merchant/shift-workers': {
+      id: '/merchant/shift-workers'
+      path: '/shift-workers'
+      fullPath: '/merchant/shift-workers'
+      preLoaderRoute: typeof MerchantShiftWorkersRouteImport
       parentRoute: typeof MerchantRoute
     }
     '/merchant/retail': {
@@ -619,6 +831,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MerchantLoyaltyRouteImport
       parentRoute: typeof MerchantRoute
     }
+    '/merchant/daily-report': {
+      id: '/merchant/daily-report'
+      path: '/daily-report'
+      fullPath: '/merchant/daily-report'
+      preLoaderRoute: typeof MerchantDailyReportRouteImport
+      parentRoute: typeof MerchantRoute
+    }
+    '/merchant/credit': {
+      id: '/merchant/credit'
+      path: '/credit'
+      fullPath: '/merchant/credit'
+      preLoaderRoute: typeof MerchantCreditRouteImport
+      parentRoute: typeof MerchantRoute
+    }
     '/merchant/analytics': {
       id: '/merchant/analytics'
       path: '/analytics'
@@ -638,6 +864,13 @@ declare module '@tanstack/react-router' {
       path: '/customer/order'
       fullPath: '/customer/order'
       preLoaderRoute: typeof CustomerOrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/shift': {
+      id: '/auth/shift'
+      path: '/auth/shift'
+      fullPath: '/auth/shift'
+      preLoaderRoute: typeof AuthShiftRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/reset-password': {
@@ -689,6 +922,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/pos/payment/$orderId': {
+      id: '/pos/payment/$orderId'
+      path: '/payment/$orderId'
+      fullPath: '/pos/payment/$orderId'
+      preLoaderRoute: typeof PosPaymentOrderIdRouteImport
+      parentRoute: typeof PosRoute
+    }
+    '/pos/orders/new': {
+      id: '/pos/orders/new'
+      path: '/orders/new'
+      fullPath: '/pos/orders/new'
+      preLoaderRoute: typeof PosOrdersNewRouteImport
+      parentRoute: typeof PosRoute
+    }
+    '/pos/bill/$orderId': {
+      id: '/pos/bill/$orderId'
+      path: '/bill/$orderId'
+      fullPath: '/pos/bill/$orderId'
+      preLoaderRoute: typeof PosBillOrderIdRouteImport
+      parentRoute: typeof PosRoute
+    }
+    '/merchant/shift-report/$shiftId': {
+      id: '/merchant/shift-report/$shiftId'
+      path: '/shift-report/$shiftId'
+      fullPath: '/merchant/shift-report/$shiftId'
+      preLoaderRoute: typeof MerchantShiftReportShiftIdRouteImport
+      parentRoute: typeof MerchantRoute
+    }
+    '/pos/payment/$orderId/receipt': {
+      id: '/pos/payment/$orderId/receipt'
+      path: '/receipt'
+      fullPath: '/pos/payment/$orderId/receipt'
+      preLoaderRoute: typeof PosPaymentOrderIdReceiptRouteImport
+      parentRoute: typeof PosPaymentOrderIdRoute
+    }
     '/m/$merchantSlug/table/$tableToken': {
       id: '/m/$merchantSlug/table/$tableToken'
       path: '/m/$merchantSlug/table/$tableToken'
@@ -717,31 +985,72 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface MerchantRouteChildren {
   MerchantAnalyticsRoute: typeof MerchantAnalyticsRoute
+  MerchantCreditRoute: typeof MerchantCreditRoute
+  MerchantDailyReportRoute: typeof MerchantDailyReportRoute
   MerchantLoyaltyRoute: typeof MerchantLoyaltyRoute
   MerchantMembersRoute: typeof MerchantMembersRoute
   MerchantMenuRoute: typeof MerchantMenuRoute
   MerchantOrdersRoute: typeof MerchantOrdersRoute
   MerchantRetailRoute: typeof MerchantRetailRoute
+  MerchantShiftWorkersRoute: typeof MerchantShiftWorkersRoute
+  MerchantShiftsRoute: typeof MerchantShiftsRoute
   MerchantStoreRoute: typeof MerchantStoreRoute
   MerchantTablesRoute: typeof MerchantTablesRoute
   MerchantIndexRoute: typeof MerchantIndexRoute
+  MerchantShiftReportShiftIdRoute: typeof MerchantShiftReportShiftIdRoute
 }
 
 const MerchantRouteChildren: MerchantRouteChildren = {
   MerchantAnalyticsRoute: MerchantAnalyticsRoute,
+  MerchantCreditRoute: MerchantCreditRoute,
+  MerchantDailyReportRoute: MerchantDailyReportRoute,
   MerchantLoyaltyRoute: MerchantLoyaltyRoute,
   MerchantMembersRoute: MerchantMembersRoute,
   MerchantMenuRoute: MerchantMenuRoute,
   MerchantOrdersRoute: MerchantOrdersRoute,
   MerchantRetailRoute: MerchantRetailRoute,
+  MerchantShiftWorkersRoute: MerchantShiftWorkersRoute,
+  MerchantShiftsRoute: MerchantShiftsRoute,
   MerchantStoreRoute: MerchantStoreRoute,
   MerchantTablesRoute: MerchantTablesRoute,
   MerchantIndexRoute: MerchantIndexRoute,
+  MerchantShiftReportShiftIdRoute: MerchantShiftReportShiftIdRoute,
 }
 
 const MerchantRouteWithChildren = MerchantRoute._addFileChildren(
   MerchantRouteChildren,
 )
+
+interface PosPaymentOrderIdRouteChildren {
+  PosPaymentOrderIdReceiptRoute: typeof PosPaymentOrderIdReceiptRoute
+}
+
+const PosPaymentOrderIdRouteChildren: PosPaymentOrderIdRouteChildren = {
+  PosPaymentOrderIdReceiptRoute: PosPaymentOrderIdReceiptRoute,
+}
+
+const PosPaymentOrderIdRouteWithChildren =
+  PosPaymentOrderIdRoute._addFileChildren(PosPaymentOrderIdRouteChildren)
+
+interface PosRouteChildren {
+  PosCreditRoute: typeof PosCreditRoute
+  PosShiftRoute: typeof PosShiftRoute
+  PosIndexRoute: typeof PosIndexRoute
+  PosBillOrderIdRoute: typeof PosBillOrderIdRoute
+  PosOrdersNewRoute: typeof PosOrdersNewRoute
+  PosPaymentOrderIdRoute: typeof PosPaymentOrderIdRouteWithChildren
+}
+
+const PosRouteChildren: PosRouteChildren = {
+  PosCreditRoute: PosCreditRoute,
+  PosShiftRoute: PosShiftRoute,
+  PosIndexRoute: PosIndexRoute,
+  PosBillOrderIdRoute: PosBillOrderIdRoute,
+  PosOrdersNewRoute: PosOrdersNewRoute,
+  PosPaymentOrderIdRoute: PosPaymentOrderIdRouteWithChildren,
+}
+
+const PosRouteWithChildren = PosRoute._addFileChildren(PosRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -751,6 +1060,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoyaltyRoute: LoyaltyRoute,
   MerchantRoute: MerchantRouteWithChildren,
   MissionsRoute: MissionsRoute,
+  PosRoute: PosRouteWithChildren,
   ProfileRoute: ProfileRoute,
   RetailRoute: RetailRoute,
   RewardsRoute: RewardsRoute,
@@ -759,6 +1069,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthMerchantRoute: AuthMerchantRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
+  AuthShiftRoute: AuthShiftRoute,
   CustomerOrderRoute: CustomerOrderRoute,
   CustomerOrdersRoute: CustomerOrdersRoute,
   OrdersIdRoute: OrdersIdRoute,

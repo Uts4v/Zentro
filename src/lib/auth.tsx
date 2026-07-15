@@ -1,4 +1,4 @@
-// lib/auth.tsx 
+// lib/auth.tsx
 import {
   createContext,
   useContext,

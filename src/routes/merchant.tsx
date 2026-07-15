@@ -22,6 +22,9 @@ import {
   Package,
   QrCode,
   Users,
+  Clock,
+  CreditCard,
+  CalendarDays,
 } from "lucide-react";
 
 export const Route = createFileRoute("/merchant")({
@@ -39,6 +42,10 @@ const navItems = [
   { to: "/merchant/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/merchant/store", label: "Store", icon: Store },
   { to: "/merchant/retail", label: "Retail", icon: Package },
+  { to: "/merchant/shift-workers", label: "Shift Workers", icon: Users },
+  { to: "/merchant/shifts", label: "Shifts", icon: Clock },
+  { to: "/merchant/daily-report", label: "Daily Report", icon: CalendarDays },
+  { to: "/merchant/credit", label: "Credit Accounts", icon: CreditCard },
 ];
 
 function MerchantLayout() {

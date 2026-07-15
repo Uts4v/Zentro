@@ -1,4 +1,4 @@
-// routes/__root.tsx 
+// routes/__root.tsx
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { getShiftWorker, clearShiftWorker } from "@/lib/shift-worker";
 import { Loader2 } from "lucide-react";
 import { NotificationToastProvider } from "@/components/NotificationToast";
 
@@ -24,6 +25,7 @@ const PUBLIC_ROUTES = [
   "/auth/merchant",
   "/auth/admin",
   "/auth/forgot-password",
+  "/auth/shift",
 ];
 
 // ── Auth gate — rendered inside AuthProvider so useAuth() works ───────────────
@@ -33,6 +35,7 @@ function AuthGate() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  const isPos = pathname.startsWith("/pos");
   const isMerchant = pathname.startsWith("/merchant");
   const isAdminRoute = pathname.startsWith("/admin");
 
@@ -44,12 +47,13 @@ function AuthGate() {
     if (isPublic) return;
 
     if (!user) {
-      const loginPage = isMerchant
+      // POS is merchant-operated now (no separate staff login), so it uses
+      // the same merchant sign-in page as /merchant.
+      const loginPage = isPos || isMerchant
         ? "/auth/merchant"
         : isAdminRoute
         ? "/auth/admin"
         : "/auth/";
-
       navigate({
         to: loginPage as any,
         search: { redirect: pathname },
@@ -58,7 +62,17 @@ function AuthGate() {
       return;
     }
 
-    if (isMerchant && merchantBlocked) {
+    // POS routes: require merchant Supabase login + shift worker session
+    if (isPos && !merchantProfile) {
+      if (getShiftWorker()) {
+        // Worker is logged in but merchant auth expired — need merchant to re-login
+        clearShiftWorker();
+      }
+      navigate({ to: "/auth/merchant" as any, replace: true });
+      return;
+    }
+
+    if ((isMerchant || isPos) && merchantBlocked) {
       navigate({
         to: "/auth/merchant" as any,
         search: {
@@ -68,7 +82,7 @@ function AuthGate() {
         replace: true,
       });
     }
-  }, [user, merchantProfile, merchantBlocked, loading, isPublic, isMerchant, isAdminRoute, pathname]);
+  }, [user, merchantProfile, merchantBlocked, loading, isPublic, isPos, isMerchant, isAdminRoute, pathname]);
 
   if (loading && !isPublic) {
     return (
@@ -86,7 +100,7 @@ function AuthGate() {
     );
   }
 
-  if (!loading && user && isMerchant && merchantBlocked) {
+  if (!loading && user && (isMerchant || isPos) && merchantBlocked) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
