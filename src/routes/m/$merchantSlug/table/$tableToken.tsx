@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { ArrowLeft, Loader2, UtensilsCrossed, ShoppingCart, Plus, Minus, Zap, Search, X, Check } from "lucide-react";
+import { ArrowLeft, Loader2, UtensilsCrossed, ShoppingCart, Plus, Minus, Zap, Search, X, Check, Gift, Sparkles, UserPlus } from "lucide-react";
 import { publicTableApi, menuApi, guestOrderApi, type MerchantProfile, type MenuItem, type MerchantTable } from "@/lib/api";
 import { useStore, cartTotal, cartPoints, saveTableContext, loadTableContext, type TableOrderContext } from "@/lib/store";
 import { useState, useEffect, useMemo } from "react";
@@ -341,6 +341,39 @@ function TableQRPage() {
           </div>
         </div>
       </div>
+
+      {/* Loyalty promo banner */}
+      <Link
+        to="/auth/"
+        search={{ redirect: `/m/${merchantSlug}/table/${tableToken}` }}
+        className="mx-5 mt-3 block overflow-hidden rounded-2xl border border-amber-200/60 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50"
+      >
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
+            <Gift className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-amber-900">
+              Want to earn loyalty points?
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-amber-700/80">
+              Sign up free — earn points, unlock rewards, get exclusive offers!
+            </p>
+          </div>
+          <UserPlus className="h-4 w-4 shrink-0 text-amber-600" />
+        </div>
+        <div className="flex gap-2 border-t border-amber-200/40 bg-amber-100/30 px-4 py-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
+            <Sparkles className="h-2.5 w-2.5" /> Earn points
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
+            <Gift className="h-2.5 w-2.5" /> Free rewards
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
+            <Zap className="h-2.5 w-2.5" /> Exclusive deals
+          </span>
+        </div>
+      </Link>
 
       {/* Category tabs */}
       {categories.length > 2 && (

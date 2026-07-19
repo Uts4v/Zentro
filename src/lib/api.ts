@@ -649,7 +649,7 @@ export const guestOrderApi = {
       points_per_item: 0,
     }));
 
-    const { data: orderId, error: rpcErr } = await supabase.rpc(
+    const { data: result, error: rpcErr } = await supabase.rpc(
       "create_guest_order",
       {
         p_merchant_id: payload.merchant_id,
@@ -659,9 +659,11 @@ export const guestOrderApi = {
         p_guest_name: payload.guest_name ?? "",
       }
     );
-    if (rpcErr || !orderId) throw new Error(rpcErr?.message ?? "Failed to create guest order");
+    if (rpcErr || !result) throw new Error(rpcErr?.message ?? "Failed to create guest order");
 
-    // Notify merchant
+    const orderId = result.id || result;
+
+    // Notify merchant (fire and forget)
     try {
       await supabase.rpc("notify_merchant_guest_order", {
         p_order_id: orderId,
@@ -669,15 +671,8 @@ export const guestOrderApi = {
       });
     } catch {}
 
-    // Fetch the full order
-    const { data: order, error: fetchErr } = await supabase
-      .from("orders")
-      .select("*, order_items(*), merchant_profiles(store_name)")
-      .eq("id", orderId)
-      .single();
-    if (fetchErr || !order) throw new Error(fetchErr?.message ?? "Failed to fetch order");
-
-    return order as Order;
+    // RPC returns full order as jsonb — use it directly (anon can't read orders table)
+    return result as Order;
   },
 };
 
