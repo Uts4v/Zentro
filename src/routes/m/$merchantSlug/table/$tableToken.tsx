@@ -114,7 +114,6 @@ function TableQRPage() {
   const [addedId, setAddedId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState("All");
 
-  const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [guestName, setGuestName] = useState("");
@@ -286,37 +285,25 @@ function TableQRPage() {
 
   return (
     <MobileShell>
-      <TopBar
-        right={
-          <button
-            onClick={() => setSearchOpen((o) => !o)}
-            aria-label="Search menu"
-            className={`grid h-9 w-9 place-items-center rounded-full transition-colors ${
-              searchOpen ? "bg-ink text-white" : "bg-white/10 text-white"
-            }`}
-          >
-            <Search className="h-4 w-4" strokeWidth={1.8} />
-          </button>
-        }
-      />
+      <TopBar />
 
-      {searchOpen && (
-        <section className="px-5 pb-1">
-          <div className="glass-strong flex items-center gap-2 rounded-2xl px-4 py-2.5">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <input
-              autoFocus
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search menu…"
-              className="flex-1 bg-transparent text-sm text-ink placeholder:text-muted-foreground focus:outline-none"
-            />
-            <button onClick={() => { setSearchOpen(false); setSearch(""); }} aria-label="Close search" className="shrink-0">
+      {/* Search bar — always visible */}
+      <div className="px-5 pt-3 pb-1">
+        <div className="glass-strong flex items-center gap-2 rounded-2xl px-4 py-2.5">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search menu…"
+            className="flex-1 bg-transparent text-sm text-ink placeholder:text-muted-foreground focus:outline-none"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0">
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
-          </div>
-        </section>
-      )}
+          )}
+        </div>
+      </div>
 
       {/* Table context banner */}
       <div className="bg-ink px-5 py-4 text-primary-foreground">
