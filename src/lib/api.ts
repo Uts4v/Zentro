@@ -631,6 +631,56 @@ export const orderApi = {
   },
 };
 
+// ── Guest Order (unauthenticated) ────────────────────────────────────────────
+
+export const guestOrderApi = {
+  create: async (payload: {
+    merchant_id: string;
+    table_token: string;
+    items: { menu_item_id: string; quantity: number; name: string; price: number }[];
+    notes?: string;
+    guest_name?: string;
+  }): Promise<Order> => {
+    const itemsJson = payload.items.map((i) => ({
+      menu_item_id: i.menu_item_id,
+      quantity: i.quantity,
+      name: i.name,
+      price: i.price,
+      points_per_item: 0,
+    }));
+
+    const { data: orderId, error: rpcErr } = await supabase.rpc(
+      "create_guest_order",
+      {
+        p_merchant_id: payload.merchant_id,
+        p_table_token: payload.table_token,
+        p_items: itemsJson,
+        p_notes: payload.notes ?? "",
+        p_guest_name: payload.guest_name ?? "",
+      }
+    );
+    if (rpcErr || !orderId) throw new Error(rpcErr?.message ?? "Failed to create guest order");
+
+    // Notify merchant
+    try {
+      await supabase.rpc("notify_merchant_guest_order", {
+        p_order_id: orderId,
+        p_merchant_id: payload.merchant_id,
+      });
+    } catch {}
+
+    // Fetch the full order
+    const { data: order, error: fetchErr } = await supabase
+      .from("orders")
+      .select("*, order_items(*), merchant_profiles(store_name)")
+      .eq("id", orderId)
+      .single();
+    if (fetchErr || !order) throw new Error(fetchErr?.message ?? "Failed to fetch order");
+
+    return order as Order;
+  },
+};
+
 // ── Merchant Profile ──────────────────────────────────────────────────────────
 
 export const merchantApi = {

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { ArrowLeft, Loader2, UtensilsCrossed, ShoppingCart, Plus, Minus, Zap, Search, X } from "lucide-react";
-import { publicTableApi, menuApi, type MerchantProfile, type MenuItem, type MerchantTable } from "@/lib/api";
+import { ArrowLeft, Loader2, UtensilsCrossed, ShoppingCart, Plus, Minus, Zap, Search, X, Check } from "lucide-react";
+import { publicTableApi, menuApi, guestOrderApi, type MerchantProfile, type MenuItem, type MerchantTable } from "@/lib/api";
 import { useStore, cartTotal, cartPoints, saveTableContext, loadTableContext, type TableOrderContext } from "@/lib/store";
 import { useState, useEffect, useMemo } from "react";
 
@@ -116,8 +116,13 @@ function TableQRPage() {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [placing, setPlacing] = useState(false);
+  const [orderPlaced, setOrderPlaced] = useState<string | null>(null);
+  const [placeError, setPlaceError] = useState("");
 
-  const { cart, add, remove, setSelectedMerchant, setTableContext, tableContext } = useStore();
+  const { cart, add, remove, setSelectedMerchant, setTableContext, tableContext, clearCart } = useStore();
 
   useEffect(() => {
     resolve();
@@ -205,6 +210,42 @@ function TableQRPage() {
     add(item.id);
     setAddedId(item.id);
     setTimeout(() => setAddedId(null), 800);
+  }
+
+  async function handleGuestCheckout() {
+    if (placing || !merchant || !table) return;
+    setPlacing(true);
+    setPlaceError("");
+    try {
+      const orderItems = cart
+        .map((c) => {
+          const mi = items.find((m) => m.id === c.itemId);
+          if (!mi) return null;
+          return {
+            menu_item_id: c.itemId,
+            quantity: c.qty,
+            name: mi.name,
+            price: parseFloat(mi.price),
+          };
+        })
+        .filter(Boolean) as { menu_item_id: string; quantity: number; name: string; price: number }[];
+
+      if (orderItems.length === 0) throw new Error("Cart is empty");
+
+      const order = await guestOrderApi.create({
+        merchant_id: merchant.id,
+        table_token: tableToken,
+        items: orderItems,
+        guest_name: guestName.trim(),
+      });
+
+      clearCart();
+      setOrderPlaced(order.id);
+    } catch (e: any) {
+      setPlaceError(e.message || "Failed to place order");
+    } finally {
+      setPlacing(false);
+    }
   }
 
   if (loading) {
@@ -364,10 +405,10 @@ function TableQRPage() {
       </div>
 
       {/* Floating cart bar */}
-      {cartCount > 0 && (
+      {cartCount > 0 && !orderPlaced && (
         <div className="fixed inset-x-0 bottom-20 z-50 mx-auto max-w-[440px] px-4">
           <button
-            onClick={() => nav({ to: "/cart" })}
+            onClick={() => setCheckoutOpen(true)}
             className="flex w-full items-center justify-between rounded-2xl bg-ink px-5 py-4 text-primary-foreground shadow-ember transition-transform active:scale-[0.98]"
           >
             <div className="flex items-center gap-3">
@@ -390,6 +431,108 @@ function TableQRPage() {
               <span className="font-display text-lg">NPR {total.toLocaleString()} →</span>
             </div>
           </button>
+        </div>
+      )}
+
+      {/* Order placed confirmation */}
+      {orderPlaced && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-6">
+          <div className="glass-strong w-full max-w-sm rounded-3xl p-8 text-center">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100">
+              <Check className="h-7 w-7 text-emerald-600" />
+            </div>
+            <h2 className="mt-4 font-display text-2xl text-ink">Order placed!</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your order has been sent to the kitchen. A staff member will confirm shortly.
+            </p>
+            <div className="mt-4 rounded-2xl bg-mist px-4 py-3 text-xs text-muted-foreground">
+              Order #{orderPlaced.slice(0, 8)}
+              {table && <> · {table.name}</>}
+            </div>
+            <button
+              onClick={() => { setOrderPlaced(null); setCheckoutOpen(false); }}
+              className="mt-6 h-11 w-full rounded-full bg-ink text-sm font-medium text-primary-foreground"
+            >
+              Back to menu
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Guest checkout modal */}
+      {checkoutOpen && !orderPlaced && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 sm:items-center">
+          <div className="glass-strong w-full max-w-md rounded-t-3xl p-6 sm:rounded-3xl">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xl text-ink">Checkout</h2>
+              <button
+                onClick={() => { setCheckoutOpen(false); setPlaceError(""); }}
+                className="grid h-8 w-8 place-items-center rounded-full hover:bg-mist"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Order summary */}
+            <div className="mt-4 max-h-40 space-y-2 overflow-y-auto">
+              {cart.map((c) => {
+                const item = items.find((m) => m.id === c.itemId);
+                return (
+                  <div key={c.itemId} className="flex items-center justify-between text-sm">
+                    <span className="text-ink">
+                      {item?.emoji || "🍽️"} {item?.name || "Item"} ×{c.qty}
+                    </span>
+                    <span className="text-muted-foreground">
+                      NPR {item ? (parseFloat(item.price) * c.qty).toLocaleString() : "—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="my-3 border-t border-border" />
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-ink">Total</span>
+              <span className="font-display text-xl text-ink">NPR {total.toLocaleString()}</span>
+            </div>
+
+            {/* Guest name input */}
+            <div className="mt-4">
+              <label className="text-xs font-medium text-muted-foreground">Your name (optional)</label>
+              <input
+                type="text"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                placeholder="e.g. Ram"
+                className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ember/40"
+              />
+            </div>
+
+            {placeError && (
+              <div className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                {placeError}
+              </div>
+            )}
+
+            <button
+              onClick={handleGuestCheckout}
+              disabled={placing}
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {placing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Placing order…
+                </>
+              ) : (
+                `Place order · NPR ${total.toLocaleString()}`
+              )}
+            </button>
+
+            <p className="mt-3 text-center text-[11px] text-muted-foreground">
+              {guestName.trim() ? `Ordering as ${guestName.trim()}` : "Ordering as guest"}
+              {table ? ` · ${table.name}` : ""}
+            </p>
+          </div>
         </div>
       )}
     </MobileShell>

@@ -1,7 +1,7 @@
 // routes/customer/order.tsx
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
-import { ShoppingCart, Plus, Minus, X, Loader2, Star, Zap } from "lucide-react";
+import { ShoppingCart, Plus, Minus, X, Loader2, Star, Zap, Search } from "lucide-react";
 import { menuApi, orderApi, merchantApi, type MenuItem, type MerchantProfile } from "@/lib/api";
 import { useStore } from "@/lib/store";
 
@@ -32,6 +32,8 @@ function CustomerOrder() {
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<{ orderId: string; points: number } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   // Load merchants
   useEffect(() => {
@@ -102,6 +104,17 @@ function CustomerOrder() {
 
   const cartCount = cart.reduce((s, c) => s + c.qty, 0);
 
+  // ── Search filter ──────────────────────────────────────────────────────────
+  const searchFiltered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return menu;
+    return menu.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.description ?? "").toLowerCase().includes(q)
+    );
+  }, [menu, search]);
+
   // ── Category grouping ──────────────────────────────────────────────────
   // Groups menu items by their `category` field. Only categories that
   // actually have at least one item show up — nothing hardcoded, fully
@@ -109,18 +122,18 @@ function CustomerOrder() {
   // category fall into "Other" so nothing silently disappears.
   const groupedMenu = useMemo(() => {
     const groups: Record<string, MenuItem[]> = {};
-    menu.forEach((item) => {
+    searchFiltered.forEach((item) => {
       const cat = item.category?.trim() || "Other";
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(item);
     });
     return groups;
-  }, [menu]);
+  }, [searchFiltered]);
 
   // Preserve first-seen order of categories as they appear in the menu data
   const categoryOrder = useMemo(() => {
     const seen: string[] = [];
-    menu.forEach((item) => {
+    searchFiltered.forEach((item) => {
       const cat = item.category?.trim() || "Other";
       if (!seen.includes(cat)) seen.push(cat);
     });
@@ -132,14 +145,14 @@ function CustomerOrder() {
       return 0;
     });
     return seen;
-  }, [menu]);
+  }, [searchFiltered]);
 
   const categories = useMemo(() => ["All", ...categoryOrder], [categoryOrder]);
 
   // Which category sections to render: all of them, or just the one selected
   const visibleCategories = filterCat === "All" ? categoryOrder : categoryOrder.filter((c) => c === filterCat);
 
-  const visibleMenu = filterCat === "All" ? menu : menu.filter((i) => (i.category?.trim() || "Other") === filterCat);
+  const visibleMenu = filterCat === "All" ? searchFiltered : searchFiltered.filter((i) => (i.category?.trim() || "Other") === filterCat);
 
   function scrollToCategory(cat: string) {
     setFilterCat("All");
@@ -281,6 +294,37 @@ function CustomerOrder() {
         </button>
       </div>
 
+      {/* Search */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setSearchOpen((o) => !o)}
+          aria-label="Search menu"
+          className={`flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors ${
+            searchOpen ? "bg-ink text-white" : "bg-mist text-muted-foreground"
+          }`}
+        >
+          <Search className="h-3.5 w-3.5" />
+          Search
+        </button>
+      </div>
+      {searchOpen && (
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-white/50 px-4 py-2.5">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            autoFocus
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search menu…"
+            className="flex-1 bg-transparent text-sm text-ink placeholder:text-muted-foreground focus:outline-none"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="shrink-0 text-muted-foreground hover:text-ink">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
@@ -314,7 +358,7 @@ function CustomerOrder() {
         </div>
       ) : visibleMenu.length === 0 ? (
         <div className="glass rounded-3xl py-16 text-center text-sm text-muted-foreground">
-          No items available
+          {search.trim() ? `No items match "${search}"` : "No items available"}
         </div>
       ) : (
         <div className="space-y-10">

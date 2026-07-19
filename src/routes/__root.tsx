@@ -26,6 +26,7 @@ const PUBLIC_ROUTES = [
   "/auth/admin",
   "/auth/forgot-password",
   "/auth/shift",
+  "/m/",
 ];
 
 // ── Auth gate — rendered inside AuthProvider so useAuth() works ───────────────

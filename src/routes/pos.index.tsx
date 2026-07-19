@@ -390,8 +390,9 @@ function OrderCard({
 
       {/* Customer info */}
       <div className="mt-2 text-xs text-muted-foreground">
-        {isDineIn ? "Walk-in" : "Pickup"}
-        {order.walk_in_name ? ` / ${order.walk_in_name}` : ""}
+        {isDineIn ? "Dine-in" : "Pickup"}
+        {order.walk_in_name ? ` · ${order.walk_in_name}` : ""}
+        {order.table_name_snapshot ? ` · ${order.table_name_snapshot}` : ""}
       </div>
 
       {/* Summary */}
