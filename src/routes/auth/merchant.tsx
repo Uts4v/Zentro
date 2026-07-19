@@ -30,7 +30,11 @@ function MerchantAuth() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash;
-    if (!hash || !hash.includes("access_token")) return;
+    const params = new URLSearchParams(window.location.search);
+    const hasCode = params.has("code");
+    const hasToken = hash && hash.includes("access_token");
+
+    if (!hasCode && !hasToken) return;
 
     setOauthLoading(true);
 
@@ -137,6 +141,17 @@ function MerchantAuth() {
     });
     if (err) setError(err.message);
   };
+
+  // If already authenticated (e.g. after OAuth PKCE exchange), redirect away
+  useEffect(() => {
+    if (loading) return;
+    if (!user) return;
+    // Give merchant profile time to load, then redirect
+    const t = setTimeout(() => {
+      navigate({ to: (redirect || "/merchant") as any, replace: true });
+    }, 200);
+    return () => clearTimeout(t);
+  }, [loading, user]);
 
   if (oauthLoading) {
     return (
