@@ -1,6 +1,21 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MobileShell, TopBar } from "@/components/MobileShell";
-import { ArrowLeft, Loader2, UtensilsCrossed, ShoppingCart, Plus, Minus, Zap, Search, X, Check, Gift, Sparkles, UserPlus } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  UtensilsCrossed,
+  ShoppingCart,
+  Plus,
+  Minus,
+  Zap,
+  Search,
+  X,
+  Check,
+  Gift,
+  Sparkles,
+  UserPlus,
+  Leaf,
+} from "lucide-react";
 import { publicTableApi, menuApi, guestOrderApi, type MerchantProfile, type MenuItem, type MerchantTable } from "@/lib/api";
 import { useStore, cartTotal, cartPoints, saveTableContext, loadTableContext, type TableOrderContext } from "@/lib/store";
 import { useState, useEffect, useMemo } from "react";
@@ -10,18 +25,36 @@ export const Route = createFileRoute("/m/$merchantSlug/table/$tableToken")({
   component: TableQRPage,
 });
 
+/** Subtle contour-line watermark, evokes tea-estate hillsides. Purely decorative. */
+function ContourMark({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 400 160"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M-10 120 Q 60 80 120 110 T 250 90 T 410 115" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+      <path d="M-10 140 Q 70 100 140 132 T 260 112 T 410 138" stroke="currentColor" strokeWidth="1" opacity="0.35" />
+      <path d="M-10 100 Q 50 60 130 90 T 240 68 T 410 94" stroke="currentColor" strokeWidth="1" opacity="0.25" />
+    </svg>
+  );
+}
+
 function TableMenuItem({
   item,
   onAdd,
   onRemove,
   qty,
   addedId,
+  index,
 }: {
   item: MenuItem;
   onAdd: () => void;
   onRemove: () => void;
   qty: number;
   addedId: string | null;
+  index: number;
 }) {
   const [imgError, setImgError] = useState(false);
   const hasImage = !!item.image_url && !imgError;
@@ -29,66 +62,80 @@ function TableMenuItem({
 
   return (
     <article
-      className={`glass-strong group relative flex flex-col overflow-hidden rounded-3xl transition-all ${
-        qty > 0 ? "ring-1 ring-ink/10" : ""
+      className={`group relative flex flex-col overflow-hidden rounded-[1.75rem] border bg-background/80 backdrop-blur-sm transition-all duration-300 ease-out animate-[riseIn_0.45s_ease-out_backwards] ${
+        qty > 0
+          ? "border-amber-300/70 shadow-[0_8px_28px_-12px_rgba(120,90,20,0.35)]"
+          : "border-border/60 shadow-[0_4px_16px_-10px_rgba(20,20,15,0.25)] hover:border-amber-200/70 hover:shadow-[0_10px_24px_-12px_rgba(120,90,20,0.28)]"
       }`}
+      style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}
     >
-      {hasImage ? (
-        <img
-          src={item.image_url!}
-          alt={item.name}
-          className="h-32 w-full object-cover"
-          onError={() => setImgError(true)}
-          loading="lazy"
-        />
-      ) : (
-        <div className="grid h-24 place-items-center bg-mist text-5xl">
-          {item.emoji || "🍽️"}
-        </div>
-      )}
-      <div className="flex flex-1 flex-col p-3">
-        <h3 className="text-sm font-semibold leading-tight text-ink">{item.name}</h3>
-        {item.description && (
-          <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{item.description}</p>
+      <div className="relative">
+        {hasImage ? (
+          <img
+            src={item.image_url!}
+            alt={item.name}
+            className="h-32 w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+        ) : (
+          <div className="grid h-24 place-items-center bg-gradient-to-br from-mist to-mist/60 text-4xl">
+            <span className="opacity-90">{item.emoji || "🍃"}</span>
+          </div>
         )}
-        <div className="mt-2 flex items-center justify-between">
-          <div>
-            <span className="font-display text-base text-ink">
+        {hasImage && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/25 to-transparent" />
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col p-3.5">
+        <h3 className="text-sm font-semibold leading-tight tracking-tight text-ink">{item.name}</h3>
+        {item.description && (
+          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{item.description}</p>
+        )}
+
+        <div className="mt-2.5 flex items-center justify-between">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-display text-[15px] tracking-tight text-ink">
               NPR {price.toLocaleString()}
             </span>
             {item.points_per_item > 0 && (
-              <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-ember-soft px-1.5 py-0.5 text-[10px] font-medium text-ember">
-                <Zap className="h-2.5 w-2.5" /> {item.points_per_item}
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-200/70">
+                <Zap className="h-2.5 w-2.5" strokeWidth={2.5} /> {item.points_per_item}
               </span>
             )}
           </div>
+
           {qty === 0 ? (
             <button
               onClick={onAdd}
-              className={`grid h-9 w-9 place-items-center rounded-full transition-all ${
+              aria-label={`Add ${item.name}`}
+              className={`grid h-9 w-9 place-items-center rounded-full transition-all duration-200 ${
                 addedId === item.id
-                  ? "bg-emerald-500 text-white scale-110"
-                  : "bg-ink text-primary-foreground active:scale-95"
+                  ? "scale-110 bg-emerald-500 text-white"
+                  : "bg-ink text-primary-foreground shadow-sm active:scale-90"
               }`}
             >
               {addedId === item.id ? (
-                <span className="text-xs">✓</span>
+                <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
               ) : (
                 <Plus className="h-4 w-4" strokeWidth={2.4} />
               )}
             </button>
           ) : (
-            <div className="flex items-center gap-2 rounded-full bg-mist px-1 py-0.5">
+            <div className="flex items-center gap-2 rounded-full bg-mist px-1 py-0.5 ring-1 ring-inset ring-border/50">
               <button
                 onClick={onRemove}
-                className="grid h-7 w-7 place-items-center rounded-full bg-background text-ink shadow-sm active:scale-95"
+                aria-label={`Remove one ${item.name}`}
+                className="grid h-7 w-7 place-items-center rounded-full bg-background text-ink shadow-sm transition-transform active:scale-90"
               >
                 <Minus className="h-3.5 w-3.5" />
               </button>
-              <span className="w-4 text-center font-display text-base text-ink">{qty}</span>
+              <span className="w-4 text-center font-display text-base tabular-nums text-ink">{qty}</span>
               <button
                 onClick={onAdd}
-                className="grid h-7 w-7 place-items-center rounded-full bg-ink text-primary-foreground shadow-sm active:scale-95"
+                aria-label={`Add one more ${item.name}`}
+                className="grid h-7 w-7 place-items-center rounded-full bg-ink text-primary-foreground shadow-sm transition-transform active:scale-90"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -250,9 +297,12 @@ function TableQRPage() {
   if (loading) {
     return (
       <MobileShell>
-        <div className="flex flex-col items-center justify-center gap-3 py-32">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">Loading table…</p>
+        <div className="flex flex-col items-center justify-center gap-4 py-32">
+          <div className="relative grid h-14 w-14 place-items-center rounded-full bg-mist">
+            <Leaf className="h-6 w-6 animate-pulse text-amber-600" strokeWidth={1.75} />
+            <span className="absolute inset-0 animate-ping rounded-full ring-1 ring-amber-300/60" />
+          </div>
+          <p className="text-xs tracking-wide text-muted-foreground">Steeping your menu…</p>
         </div>
       </MobileShell>
     );
@@ -285,47 +335,55 @@ function TableQRPage() {
 
   return (
     <MobileShell>
+      <style>{`
+        @keyframes riseIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes sheetUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeScale { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+      `}</style>
+
       <TopBar />
 
-      {/* Search bar — always visible */}
-      <div className="px-5 pt-3 pb-1">
-        <div className="glass-strong flex items-center gap-2 rounded-2xl px-4 py-2.5">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search menu…"
-            className="flex-1 bg-transparent text-sm text-ink placeholder:text-muted-foreground focus:outline-none"
-          />
-          {search && (
-            <button onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0">
-              <X className="h-4 w-4 text-muted-foreground" />
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* Table context banner */}
-      <div className="bg-ink px-5 py-4 text-primary-foreground">
-        <div className="flex items-center gap-3">
+      <div className="relative overflow-hidden bg-gradient-to-b from-ink to-[#14201a] px-5 pb-5 pt-4 text-primary-foreground">
+        <ContourMark className="pointer-events-none absolute inset-x-0 bottom-0 h-20 w-full text-white/10" />
+        <div className="relative flex items-center gap-3">
           {merchant.logo_url ? (
             <img
               src={merchant.logo_url}
               alt={merchant.store_name}
-              className="h-10 w-10 rounded-xl object-cover ring-2 ring-white/20"
+              className="h-11 w-11 rounded-2xl object-cover ring-2 ring-white/15"
             />
           ) : (
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-lg">
-              ☕
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 text-lg ring-2 ring-white/15">
+              <Leaf className="h-5 w-5 text-amber-300" strokeWidth={1.75} />
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-lg">{merchant.store_name}</p>
-            <div className="flex items-center gap-2 text-sm text-white/70">
-              <UtensilsCrossed className="h-3.5 w-3.5" />
+            <p className="truncate font-display text-xl tracking-tight">{merchant.store_name}</p>
+            <div className="mt-0.5 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-white/75">
+              <UtensilsCrossed className="h-3 w-3" />
               <span>Dine-in · {table.name}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative -mt-3 px-5">
+        <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-background/95 px-4 py-3 shadow-[0_10px_30px_-14px_rgba(20,20,15,0.35)] backdrop-blur-sm">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search the menu…"
+            className="flex-1 bg-transparent text-sm text-ink placeholder:text-muted-foreground focus:outline-none"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0 text-muted-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -333,23 +391,21 @@ function TableQRPage() {
       <Link
         to="/auth/"
         search={{ redirect: `/m/${merchantSlug}/table/${tableToken}` }}
-        className="mx-5 mt-3 block overflow-hidden rounded-2xl border border-amber-200/60 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50"
+        className="mx-5 mt-4 block overflow-hidden rounded-3xl border border-amber-200/50 bg-gradient-to-br from-amber-50 via-orange-50/70 to-amber-100/60 transition-transform active:scale-[0.99]"
       >
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
+        <div className="flex items-center gap-3 px-4 py-3.5">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-[0_6px_16px_-6px_rgba(217,119,6,0.6)]">
             <Gift className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-amber-900">
-              Want to earn loyalty points?
-            </p>
-            <p className="mt-0.5 text-[11px] leading-snug text-amber-700/80">
-              Sign up free — earn points, unlock rewards, get exclusive offers!
+            <p className="text-sm font-semibold text-amber-900">Earn loyalty points</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-amber-700/85">
+              Create a free account to earn points, unlock rewards, and get exclusive offers.
             </p>
           </div>
           <UserPlus className="h-4 w-4 shrink-0 text-amber-600" />
         </div>
-        <div className="flex gap-2 border-t border-amber-200/40 bg-amber-100/30 px-4 py-2">
+        <div className="flex gap-2 border-t border-amber-200/50 bg-amber-100/40 px-4 py-2">
           <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
             <Sparkles className="h-2.5 w-2.5" /> Earn points
           </span>
@@ -364,47 +420,51 @@ function TableQRPage() {
 
       {/* Category tabs */}
       {categories.length > 2 && (
-        <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto px-5 pb-1">
+        <div className="no-scrollbar sticky top-0 z-30 mt-4 flex gap-5 overflow-x-auto border-b border-border/60 bg-background/95 px-5 pb-0 pt-2 backdrop-blur-sm">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-all ${
-                activeCategory === cat
-                  ? "bg-ink text-primary-foreground shadow-soft"
-                  : "glass text-muted-foreground hover:text-ink"
+              className={`relative shrink-0 whitespace-nowrap pb-2.5 text-[13px] font-medium transition-colors ${
+                activeCategory === cat ? "text-ink" : "text-muted-foreground hover:text-ink/70"
               }`}
             >
               {cat}
+              <span
+                className={`absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-ink transition-opacity ${
+                  activeCategory === cat ? "opacity-100" : "opacity-0"
+                }`}
+              />
             </button>
           ))}
         </div>
       )}
 
       {/* Menu */}
-      <div className="mt-4 pb-36">
+      <div className="mt-5 pb-36">
         {items.length === 0 ? (
-          <div className="mx-5 glass rounded-3xl py-16 text-center">
-            <p className="text-4xl">📋</p>
+          <div className="mx-5 rounded-3xl border border-border/60 bg-mist/40 py-16 text-center">
+            <Leaf className="mx-auto h-8 w-8 text-muted-foreground/60" strokeWidth={1.5} />
             <p className="mt-3 font-display text-lg text-ink">Nothing here yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">Menu is being prepared</p>
+            <p className="mt-1 text-sm text-muted-foreground">The menu is still being prepared</p>
           </div>
         ) : search.trim() && searchFiltered.length === 0 ? (
           <p className="px-5 text-center text-sm text-muted-foreground">
             No items match "{search}"
           </p>
         ) : (
-          <div className="space-y-6 px-5">
+          <div className="space-y-7 px-5">
             {Object.entries(groupedItems).map(([cat, catItems]) => (
               <div key={cat}>
                 {activeCategory === "All" && (
                   <div className="mb-3 flex items-baseline gap-2">
-                    <p className="text-sm font-semibold uppercase tracking-wide text-ink">{cat}</p>
+                    <p className="font-display text-[15px] tracking-tight text-ink">{cat}</p>
+                    <span className="h-px flex-1 bg-border/70" />
                     <span className="text-[11px] text-muted-foreground">{catItems.length}</span>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3">
-                  {catItems.map((item) => {
+                <div className="grid grid-cols-2 gap-3.5">
+                  {catItems.map((item, idx) => {
                     const qty = cart.find((c) => c.itemId === item.id)?.qty ?? 0;
                     return (
                       <TableMenuItem
@@ -412,6 +472,7 @@ function TableQRPage() {
                         item={item}
                         qty={qty}
                         addedId={addedId}
+                        index={idx}
                         onAdd={() => handleAdd(item)}
                         onRemove={() => remove(item.id)}
                       />
@@ -429,12 +490,12 @@ function TableQRPage() {
         <div className="fixed inset-x-0 bottom-20 z-50 mx-auto max-w-[440px] px-4">
           <button
             onClick={() => setCheckoutOpen(true)}
-            className="flex w-full items-center justify-between rounded-2xl bg-ink px-5 py-4 text-primary-foreground shadow-ember transition-transform active:scale-[0.98]"
+            className="flex w-full items-center justify-between rounded-2xl bg-gradient-to-r from-ink to-[#182a20] px-5 py-4 text-primary-foreground shadow-[0_16px_36px_-12px_rgba(0,0,0,0.55)] transition-transform active:scale-[0.98]"
           >
             <div className="flex items-center gap-3">
               <div className="relative">
                 <ShoppingCart className="h-5 w-5" />
-                <span className="absolute -right-2 -top-2 grid h-4 w-4 place-items-center rounded-full bg-ember text-[9px] font-bold">
+                <span className="absolute -right-2 -top-2 grid h-4 w-4 place-items-center rounded-full bg-amber-500 text-[9px] font-bold text-ink">
                   {cartCount}
                 </span>
               </div>
@@ -444,11 +505,11 @@ function TableQRPage() {
             </div>
             <div className="flex items-center gap-3">
               {points > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/80">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-xs text-amber-200">
                   <Zap className="h-3 w-3" /> +{points} pts
                 </span>
               )}
-              <span className="font-display text-lg">NPR {total.toLocaleString()} →</span>
+              <span className="font-display text-lg tracking-tight">NPR {total.toLocaleString()} →</span>
             </div>
           </button>
         </div>
@@ -456,22 +517,25 @@ function TableQRPage() {
 
       {/* Order placed confirmation */}
       {orderPlaced && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-6">
-          <div className="glass-strong w-full max-w-sm rounded-3xl p-8 text-center">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100">
-              <Check className="h-7 w-7 text-emerald-600" />
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-6 backdrop-blur-sm">
+          <div
+            className="w-full max-w-sm rounded-[2rem] border border-border/60 bg-background p-8 text-center shadow-2xl"
+            style={{ animation: "fadeScale 0.3s ease-out" }}
+          >
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 ring-1 ring-emerald-200/70">
+              <Check className="h-7 w-7 text-emerald-600" strokeWidth={2.25} />
             </div>
-            <h2 className="mt-4 font-display text-2xl text-ink">Order placed!</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Your order has been sent to the kitchen. A staff member will confirm shortly.
+            <h2 className="mt-5 font-display text-2xl tracking-tight text-ink">Order placed</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Your order has been sent to the kitchen. A staff member will confirm it shortly.
             </p>
-            <div className="mt-4 rounded-2xl bg-mist px-4 py-3 text-xs text-muted-foreground">
+            <div className="mt-5 rounded-2xl bg-mist px-4 py-3 text-xs text-muted-foreground">
               Order #{orderPlaced.slice(0, 8)}
               {table && <> · {table.name}</>}
             </div>
             <button
               onClick={() => { setOrderPlaced(null); setCheckoutOpen(false); }}
-              className="mt-6 h-11 w-full rounded-full bg-ink text-sm font-medium text-primary-foreground"
+              className="mt-6 h-11 w-full rounded-full bg-ink text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
               Back to menu
             </button>
@@ -481,28 +545,32 @@ function TableQRPage() {
 
       {/* Guest checkout modal */}
       {checkoutOpen && !orderPlaced && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 sm:items-center">
-          <div className="glass-strong w-full max-w-md rounded-t-3xl p-6 sm:rounded-3xl">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center">
+          <div
+            className="w-full max-w-md rounded-t-[2rem] border border-border/60 bg-background p-6 shadow-2xl sm:rounded-[2rem]"
+            style={{ animation: "sheetUp 0.32s cubic-bezier(0.22,1,0.36,1)" }}
+          >
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-xl text-ink">Checkout</h2>
+              <h2 className="font-display text-xl tracking-tight text-ink">Checkout</h2>
               <button
                 onClick={() => { setCheckoutOpen(false); setPlaceError(""); }}
-                className="grid h-8 w-8 place-items-center rounded-full hover:bg-mist"
+                className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-mist"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Order summary */}
-            <div className="mt-4 max-h-40 space-y-2 overflow-y-auto">
+            <div className="mt-4 max-h-40 space-y-2.5 overflow-y-auto pr-1">
               {cart.map((c) => {
                 const item = items.find((m) => m.id === c.itemId);
                 return (
                   <div key={c.itemId} className="flex items-center justify-between text-sm">
                     <span className="text-ink">
-                      {item?.emoji || "🍽️"} {item?.name || "Item"} ×{c.qty}
+                      {item?.emoji || "🍃"} {item?.name || "Item"}
+                      <span className="ml-1 text-muted-foreground">×{c.qty}</span>
                     </span>
-                    <span className="text-muted-foreground">
+                    <span className="tabular-nums text-muted-foreground">
                       NPR {item ? (parseFloat(item.price) * c.qty).toLocaleString() : "—"}
                     </span>
                   </div>
@@ -510,21 +578,26 @@ function TableQRPage() {
               })}
             </div>
 
-            <div className="my-3 border-t border-border" />
+            <div className="my-4 border-t border-dashed border-border" />
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-ink">Total</span>
-              <span className="font-display text-xl text-ink">NPR {total.toLocaleString()}</span>
+              <span className="font-display text-2xl tracking-tight text-ink">NPR {total.toLocaleString()}</span>
             </div>
+            {points > 0 && (
+              <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-700">
+                <Zap className="h-3 w-3" /> You'll earn {points} points on this order
+              </p>
+            )}
 
             {/* Guest name input */}
-            <div className="mt-4">
+            <div className="mt-5">
               <label className="text-xs font-medium text-muted-foreground">Your name (optional)</label>
               <input
                 type="text"
                 value={guestName}
                 onChange={(e) => setGuestName(e.target.value)}
                 placeholder="e.g. Ram"
-                className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ember/40"
+                className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-amber-400/40"
               />
             </div>
 
@@ -537,7 +610,7 @@ function TableQRPage() {
             <button
               onClick={handleGuestCheckout}
               disabled={placing}
-              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-sm font-medium text-primary-foreground shadow-[0_10px_24px_-10px_rgba(0,0,0,0.5)] transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {placing ? (
                 <>
