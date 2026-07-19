@@ -22,7 +22,7 @@ function MerchantAuth() {
   const [success, setSuccess]   = useState<string | null>(null);
   const [busy, setBusy]         = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
-  const { signIn, signUp }      = useAuth();
+  const { signIn, signUp, loading: authLoading, user } = useAuth();
   const navigate                = useNavigate();
   const { redirect }            = useSearch({ from: "/auth/merchant" });
 
@@ -144,14 +144,14 @@ function MerchantAuth() {
 
   // If already authenticated (e.g. after OAuth PKCE exchange), redirect away
   useEffect(() => {
-    if (loading) return;
+    if (authLoading) return;
     if (!user) return;
     // Give merchant profile time to load, then redirect
     const t = setTimeout(() => {
       navigate({ to: (redirect || "/merchant") as any, replace: true });
     }, 200);
     return () => clearTimeout(t);
-  }, [loading, user]);
+  }, [authLoading, user]);
 
   if (oauthLoading) {
     return (
