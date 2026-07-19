@@ -81,7 +81,8 @@ export function Receipt({
       <div className="space-y-0.5 text-[10px]">
         <p>Receipt: {receiptNumber}</p>
         <p>Date: {dateStr} {timeStr}</p>
-        <p>Cashier: {cashierName}</p>
+        <p>Customer: {customerLabel}</p>
+        <p>Staff: {cashierName}</p>
         <p>
           Table:{" "}
           {orderType === "dine_in" ? tableName || "—" : "Pickup"}{" "}

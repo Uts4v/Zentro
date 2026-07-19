@@ -344,13 +344,25 @@ export const orderApi = {
     const merchant = await getMerchantProfile(userId);
     let query = supabase
       .from("orders")
-      .select("*, order_items(*), profiles:customer_id(full_name)")
+      .select("*, order_items(*)")
       .eq("merchant_id", merchant.id)
       .order("created_at", { ascending: false });
     if (filterStatus) query = query.eq("status", filterStatus);
     const { data, error } = await query;
     if (error) throw new Error(error.message);
-    return (data ?? []) as Order[];
+
+    // Fetch customer names separately if needed
+    const customerIds = [...new Set((data ?? []).map((o: any) => o.customer_id).filter(Boolean))];
+    let customerMap: Record<string, string> = {};
+    if (customerIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles").select("id, full_name").in("id", customerIds);
+      (profiles ?? []).forEach((p: any) => { customerMap[p.id] = p.full_name; });
+    }
+    return (data ?? []).map((o: any) => ({
+      ...o,
+      profiles: o.customer_id ? { full_name: customerMap[o.customer_id] ?? null } : null,
+    })) as Order[];
   },
 
   create: async (payload: CreateOrderPayload): Promise<Order> => {
@@ -381,7 +393,7 @@ export const orderApi = {
       // Fetch the full order with items
       const { data: order, error: fetchErr } = await supabase
         .from("orders")
-        .select("*, order_items(*), profiles:customer_id(full_name), merchant_profiles(store_name)")
+        .select("*, order_items(*), merchant_profiles(store_name)")
         .eq("id", orderId)
         .single();
       if (fetchErr || !order) throw new Error(fetchErr?.message ?? "Failed to fetch order");
@@ -485,11 +497,23 @@ export const orderApi = {
       .from("orders")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .select("*, order_items(*), profiles:customer_id(full_name)")
+      .select("*, order_items(*)")
       .single();
     if (error) throw new Error(error.message);
 
-    if (status === "confirmed") {
+    // Fetch customer name separately if customer_id exists
+    let customerName: string | null = null;
+    if (data.customer_id) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", data.customer_id)
+        .maybeSingle();
+      customerName = prof?.full_name ?? null;
+    }
+    (data as any).profiles = customerName ? { full_name: customerName } : null;
+
+    if (status === "confirmed" && data.customer_id) {
       if (data.points_earned > 0) {
         try {
           await (supabase.rpc as any)("increment_points", {
@@ -588,10 +612,21 @@ export const orderApi = {
   get: async (id: string): Promise<Order> => {
     const { data, error } = await supabase
       .from("orders")
-      .select("*, order_items(*), profiles:customer_id(full_name), merchant_profiles(store_name)")
+      .select("*, order_items(*), merchant_profiles(store_name)")
       .eq("id", id)
       .single();
     if (error) throw new Error(error.message);
+
+    // Fetch customer name separately if customer_id exists
+    if (data.customer_id) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", data.customer_id)
+        .maybeSingle();
+      (data as any).profiles = prof ? { full_name: prof.full_name } : null;
+    }
+
     return data as Order;
   },
 };

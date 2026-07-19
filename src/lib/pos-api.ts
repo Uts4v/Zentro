@@ -88,6 +88,22 @@ export interface CreditTransaction {
   notes: string | null;
   recorded_by: string;
   created_at: string;
+  // Joined from linked order (only present for charge transactions)
+  order?: {
+    id: string;
+    receipt_number: string | null;
+    total_amount: number;
+    walk_in_name: string | null;
+    order_type: string;
+    table_name_snapshot: string | null;
+    created_at: string;
+    items: {
+      name: string;
+      price: number;
+      quantity: number;
+      subtotal: number;
+    }[];
+  } | null;
 }
 
 export interface WalkInOrderPayload {
@@ -416,7 +432,59 @@ export const creditApi = {
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) throw new Error(error.message);
-    return (data ?? []) as CreditTransaction[];
+
+    const txs = (data ?? []) as CreditTransaction[];
+
+    // Fetch order details for charge transactions that have an order_id
+    const orderIds = txs
+      .filter((tx) => tx.type === "charge" && tx.order_id)
+      .map((tx) => tx.order_id!);
+
+    let orderMap: Record<string, any> = {};
+    if (orderIds.length > 0) {
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("id, receipt_number, total_amount, walk_in_name, order_type, table_name_snapshot, created_at")
+        .in("id", orderIds);
+      (orders ?? []).forEach((o: any) => { orderMap[o.id] = o; });
+
+      const { data: items } = await supabase
+        .from("order_items")
+        .select("order_id, name, price, quantity, subtotal")
+        .in("order_id", orderIds);
+      const itemsByOrder: Record<string, any[]> = {};
+      (items ?? []).forEach((item: any) => {
+        if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+        itemsByOrder[item.order_id].push({
+          name: item.name,
+          price: Number(item.price),
+          quantity: item.quantity,
+          subtotal: Number(item.subtotal),
+        });
+      });
+
+      for (const oid of orderIds) {
+        if (orderMap[oid]) {
+          orderMap[oid].items = itemsByOrder[oid] ?? [];
+        }
+      }
+    }
+
+    return txs.map((tx) => ({
+      ...tx,
+      order: tx.order_id && orderMap[tx.order_id]
+        ? {
+            id: orderMap[tx.order_id].id,
+            receipt_number: orderMap[tx.order_id].receipt_number,
+            total_amount: Number(orderMap[tx.order_id].total_amount),
+            walk_in_name: orderMap[tx.order_id].walk_in_name,
+            order_type: orderMap[tx.order_id].order_type,
+            table_name_snapshot: orderMap[tx.order_id].table_name_snapshot,
+            created_at: orderMap[tx.order_id].created_at,
+            items: orderMap[tx.order_id].items,
+          }
+        : null,
+    })) as CreditTransaction[];
   },
 
   recordPayment: async (
@@ -760,6 +828,49 @@ export interface DailyReportData {
     cash_difference: number | null;
     status: string;
   }[];
+  orders: {
+    id: string;
+    receipt_number: string | null;
+    total_amount: number;
+    payment_method: string | null;
+    payment_status: string;
+    status: string;
+    is_walk_in: boolean;
+    walk_in_name: string | null;
+    order_type: string;
+    table_name_snapshot: string | null;
+    discount_amount: number | null;
+    processed_by_name: string | null;
+    created_at: string;
+  }[];
+  items_sold: {
+    name: string;
+    quantity: number;
+    total_revenue: number;
+  }[];
+  drops: {
+    id: string;
+    amount: number;
+    direction: "drop" | "payout";
+    reason: string;
+    recorder_name: string;
+    shift_worker_name: string | null;
+    created_at: string;
+  }[];
+  staff_activity: {
+    name: string;
+    order_count: number;
+    total_sales: number;
+  }[];
+  credit_activity: {
+    id: string;
+    type: "charge" | "payment";
+    amount: number;
+    balance_after: number;
+    customer_name: string | null;
+    recorded_by_name: string | null;
+    created_at: string;
+  }[];
   totals: {
     total_orders: number;
     total_sales: number;
@@ -773,6 +884,22 @@ export interface DailyReportData {
     cash_difference: number;
     cash_drops: number;
     cash_payouts: number;
+    total_points_earned: number;
+    walk_in_orders: number;
+    walk_in_sales: number;
+    registered_orders: number;
+    registered_sales: number;
+    dine_in_orders: number;
+    dine_in_sales: number;
+    pickup_orders: number;
+    pickup_sales: number;
+    delivery_orders: number;
+    delivery_sales: number;
+    total_items_sold: number;
+    cancelled_orders: number;
+    cancelled_total: number;
+    credit_charges: number;
+    credit_payments: number;
   };
   merchant_name: string;
   merchant_address: string | null;
@@ -843,24 +970,59 @@ export const reportApi = {
 
   getDailyReport: async (dateStr?: string): Promise<DailyReportData> => {
     const merchant = await getMerchantProfileCached();
-    const targetDate = dateStr || new Date().toISOString().slice(0, 10);
-    const dayStart = `${targetDate}T00:00:00.000Z`;
-    const dayEnd = `${targetDate}T23:59:59.999Z`;
+    const now = new Date();
+    const targetDate = dateStr || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    // Convert local date to UTC boundaries so queries match Supabase UTC timestamps
+    const dayStart = new Date(`${targetDate}T00:00:00`).toISOString();
+    const dayEnd = new Date(`${targetDate}T23:59:59.999`).toISOString();
 
-    // Get all shifts for the day
-    const { data: shifts } = await supabase
-      .from("cash_shifts")
-      .select("*")
-      .eq("merchant_id", merchant.id)
-      .gte("opened_at", dayStart)
-      .lte("opened_at", dayEnd)
-      .order("opened_at", { ascending: true });
+    // ── Parallel fetches ──────────────────────────────────────────────────────
+    const [
+      { data: shifts },
+      { data: orders },
+      { data: orderItems },
+      { data: creditTxs },
+    ] = await Promise.all([
+      supabase
+        .from("cash_shifts")
+        .select("*")
+        .eq("merchant_id", merchant.id)
+        .gte("opened_at", dayStart)
+        .lte("opened_at", dayEnd)
+        .order("opened_at", { ascending: true }),
+      supabase
+        .from("orders")
+        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, discount_amount, points_earned, processed_by, created_at, paid_at")
+        .eq("merchant_id", merchant.id)
+        .gte("created_at", dayStart)
+        .lte("created_at", dayEnd)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("order_items")
+        .select("order_id, name, price, quantity, subtotal, orders!inner(merchant_id, created_at)")
+        .eq("orders.merchant_id", merchant.id)
+        .gte("orders.created_at", dayStart)
+        .lte("orders.created_at", dayEnd),
+      supabase
+        .from("credit_transactions")
+        .select("id, type, amount, balance_after, credit_account_id, recorded_by, created_at, credit_accounts!inner(merchant_id, full_name)")
+        .eq("credit_accounts.merchant_id", merchant.id)
+        .gte("created_at", dayStart)
+        .lte("created_at", dayEnd)
+        .order("created_at", { ascending: true }),
+    ]);
 
-    // Resolve names
+    // ── Resolve profile names (shift openers/closers + order processors + drop recorders) ──
     const userIds = new Set<string>();
     (shifts ?? []).forEach((s: any) => {
       if (s.opened_by) userIds.add(s.opened_by);
       if (s.closed_by) userIds.add(s.closed_by);
+    });
+    (orders ?? []).forEach((o: any) => {
+      if (o.processed_by) userIds.add(o.processed_by);
+    });
+    (creditTxs ?? []).forEach((t: any) => {
+      if (t.recorded_by) userIds.add(t.recorded_by);
     });
     const nameMap: Record<string, string> = {};
     if (userIds.size > 0) {
@@ -869,61 +1031,85 @@ export const reportApi = {
       (profiles ?? []).forEach((p: any) => { nameMap[p.id] = p.full_name ?? "Unknown"; });
     }
 
-    // Get all orders for the day
-    const { data: orders } = await supabase
-      .from("orders")
-      .select("id, total_amount, payment_method, payment_status, discount_amount, cash_received, created_at, paid_at")
-      .eq("merchant_id", merchant.id)
-      .gte("created_at", dayStart)
-      .lte("created_at", dayEnd)
-      .order("created_at", { ascending: true });
-
-    // Get all cash drops for the day
+    // ── Cash drops ──
     const shiftIds = (shifts ?? []).map((s: any) => s.id);
     let allDrops: any[] = [];
     if (shiftIds.length > 0) {
       const { data: drops } = await supabase
         .from("cash_drops")
         .select("*")
-        .in("shift_id", shiftIds);
+        .in("shift_id", shiftIds)
+        .order("created_at", { ascending: true });
       allDrops = drops ?? [];
     }
 
-    // Calculate totals
+    // Resolve drop recorder names
+    const dropRecorderIds = new Set<string>();
+    allDrops.forEach((d: any) => { if (d.recorded_by) dropRecorderIds.add(d.recorded_by); });
+    for (const uid of dropRecorderIds) {
+      if (!nameMap[uid]) {
+        const { data: p } = await supabase
+          .from("profiles").select("full_name").eq("id", uid).maybeSingle();
+        nameMap[uid] = p?.full_name ?? "Unknown";
+      }
+    }
+
+    // Build shift worker name map
+    const shiftMap: Record<string, any> = {};
+    (shifts ?? []).forEach((s: any) => { shiftMap[s.id] = s; });
+
+    // ── Calculate totals ──
     const paidOrders = (orders ?? []).filter((o: any) => o.payment_status === "paid");
+    const cancelledOrders = (orders ?? []).filter((o: any) => o.status === "cancelled");
+
     const totalSales = paidOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0);
-    const cashSales = paidOrders
-      .filter((o: any) => o.payment_method === "cash")
-      .reduce((s: number, o: any) => s + Number(o.total_amount), 0);
-    const fonepaySales = paidOrders
-      .filter((o: any) => o.payment_method === "fonepay")
-      .reduce((s: number, o: any) => s + Number(o.total_amount), 0);
-    const creditSales = paidOrders
-      .filter((o: any) => o.payment_method === "credit")
-      .reduce((s: number, o: any) => s + Number(o.total_amount), 0);
-    const splitSales = paidOrders
-      .filter((o: any) => o.payment_method === "split")
-      .reduce((s: number, o: any) => s + Number(o.total_amount), 0);
-    const totalDiscount = paidOrders.reduce(
-      (s: number, o: any) => s + Number(o.discount_amount ?? 0), 0
-    );
+    const cashSales = paidOrders.filter((o: any) => o.payment_method === "cash").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const fonepaySales = paidOrders.filter((o: any) => o.payment_method === "fonepay").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const creditSales = paidOrders.filter((o: any) => o.payment_method === "credit").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const splitSales = paidOrders.filter((o: any) => o.payment_method === "split").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const totalDiscount = paidOrders.reduce((s: number, o: any) => s + Number(o.discount_amount ?? 0), 0);
+    const totalPointsEarned = paidOrders.reduce((s: number, o: any) => s + Number(o.points_earned ?? 0), 0);
 
-    const openingCash = (shifts ?? []).reduce(
-      (s: number, sh: any) => s + Number(sh.opening_cash), 0
-    );
-    const closingCash = (shifts ?? [])
-      .filter((sh: any) => sh.closing_cash_actual != null)
-      .reduce((s: number, sh: any) => s + Number(sh.closing_cash_actual), 0);
-    const cashDiff = (shifts ?? [])
-      .filter((sh: any) => sh.cash_difference != null)
-      .reduce((s: number, sh: any) => s + Number(sh.cash_difference), 0);
-    const cashDrops = allDrops
-      .filter((d: any) => d.direction === "drop")
-      .reduce((s: number, d: any) => s + Number(d.amount), 0);
-    const cashPayouts = allDrops
-      .filter((d: any) => d.direction === "payout")
-      .reduce((s: number, d: any) => s + Number(d.amount), 0);
+    const walkInOrders = paidOrders.filter((o: any) => o.is_walk_in);
+    const registeredOrders = paidOrders.filter((o: any) => !o.is_walk_in);
+    const dineInOrders = paidOrders.filter((o: any) => o.order_type === "dine_in");
+    const pickupOrders = paidOrders.filter((o: any) => o.order_type === "pickup");
+    const deliveryOrders = paidOrders.filter((o: any) => o.order_type === "delivery");
 
+    const openingCash = (shifts ?? []).reduce((s: number, sh: any) => s + Number(sh.opening_cash), 0);
+    const closingCash = (shifts ?? []).filter((sh: any) => sh.closing_cash_actual != null).reduce((s: number, sh: any) => s + Number(sh.closing_cash_actual), 0);
+    const cashDiff = (shifts ?? []).filter((sh: any) => sh.cash_difference != null).reduce((s: number, sh: any) => s + Number(sh.cash_difference), 0);
+    const cashDrops = allDrops.filter((d: any) => d.direction === "drop").reduce((s: number, d: any) => s + Number(d.amount), 0);
+    const cashPayouts = allDrops.filter((d: any) => d.direction === "payout").reduce((s: number, d: any) => s + Number(d.amount), 0);
+
+    const totalItemsSold = (orderItems ?? []).reduce((s: number, i: any) => s + i.quantity, 0);
+    const cancelledTotal = cancelledOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const creditCharges = (creditTxs ?? []).filter((t: any) => t.type === "charge").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const creditPayments = (creditTxs ?? []).filter((t: any) => t.type === "payment").reduce((s: number, t: any) => s + Number(t.amount), 0);
+
+    // ── Aggregate items sold ──
+    const itemMap: Record<string, { name: string; quantity: number; total_revenue: number }> = {};
+    (orderItems ?? []).forEach((i: any) => {
+      const key = i.name;
+      if (!itemMap[key]) itemMap[key] = { name: i.name, quantity: 0, total_revenue: 0 };
+      itemMap[key].quantity += i.quantity;
+      itemMap[key].total_revenue += Number(i.subtotal);
+    });
+    const itemsSold = Object.values(itemMap).sort((a, b) => b.total_revenue - a.total_revenue);
+
+    // ── Staff activity ──
+    const staffMap: Record<string, { name: string; order_count: number; total_sales: number }> = {};
+    paidOrders.forEach((o: any) => {
+      const uid = o.processed_by;
+      if (!uid) return;
+      const name = nameMap[uid] ?? "Unknown";
+      if (!staffMap[uid]) staffMap[uid] = { name, order_count: 0, total_sales: 0 };
+      staffMap[uid].order_count += 1;
+      staffMap[uid].total_sales += Number(o.total_amount);
+    });
+    const staffActivity = Object.values(staffMap).sort((a, b) => b.total_sales - a.total_sales);
+
+    // ── Assemble return ──
     return {
       date: targetDate,
       shifts: (shifts ?? []).map((s: any) => ({
@@ -938,6 +1124,41 @@ export const reportApi = {
         cash_difference: s.cash_difference != null ? Number(s.cash_difference) : null,
         status: s.status,
       })),
+      orders: (orders ?? []).map((o: any) => ({
+        id: o.id,
+        receipt_number: o.receipt_number,
+        total_amount: Number(o.total_amount),
+        payment_method: o.payment_method,
+        payment_status: o.payment_status,
+        status: o.status,
+        is_walk_in: o.is_walk_in,
+        walk_in_name: o.walk_in_name,
+        order_type: o.order_type,
+        table_name_snapshot: o.table_name_snapshot,
+        discount_amount: o.discount_amount != null ? Number(o.discount_amount) : null,
+        processed_by_name: o.processed_by ? (nameMap[o.processed_by] ?? null) : null,
+        created_at: o.created_at,
+      })),
+      items_sold: itemsSold,
+      drops: allDrops.map((d: any) => ({
+        id: d.id,
+        amount: Number(d.amount),
+        direction: d.direction,
+        reason: d.reason,
+        recorder_name: nameMap[d.recorded_by] ?? "Unknown",
+        shift_worker_name: shiftMap[d.shift_id]?.worker_name ?? null,
+        created_at: d.created_at,
+      })),
+      staff_activity: staffActivity,
+      credit_activity: (creditTxs ?? []).map((t: any) => ({
+        id: t.id,
+        type: t.type,
+        amount: Number(t.amount),
+        balance_after: Number(t.balance_after),
+        customer_name: t.credit_accounts?.full_name ?? null,
+        recorded_by_name: t.recorded_by ? (nameMap[t.recorded_by] ?? null) : null,
+        created_at: t.created_at,
+      })),
       totals: {
         total_orders: paidOrders.length,
         total_sales: totalSales,
@@ -951,6 +1172,22 @@ export const reportApi = {
         cash_difference: cashDiff,
         cash_drops: cashDrops,
         cash_payouts: cashPayouts,
+        total_points_earned: totalPointsEarned,
+        walk_in_orders: walkInOrders.length,
+        walk_in_sales: walkInOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        registered_orders: registeredOrders.length,
+        registered_sales: registeredOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        dine_in_orders: dineInOrders.length,
+        dine_in_sales: dineInOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        pickup_orders: pickupOrders.length,
+        pickup_sales: pickupOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        delivery_orders: deliveryOrders.length,
+        delivery_sales: deliveryOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        total_items_sold: totalItemsSold,
+        cancelled_orders: cancelledOrders.length,
+        cancelled_total: cancelledTotal,
+        credit_charges: creditCharges,
+        credit_payments: creditPayments,
       },
       merchant_name: merchant.store_name,
       merchant_address: merchant.address,

@@ -2,7 +2,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
-import { getShiftWorker } from "@/lib/shift-worker";
+import { supabase } from "@/lib/supabase";
+import { getShiftWorker, setShiftWorker } from "@/lib/shift-worker";
 import {
   shiftApi,
   type CashShift,
@@ -18,6 +19,7 @@ import {
   TrendingDown,
   Plus,
   X,
+  User,
 } from "lucide-react";
 
 export const Route = createFileRoute("/pos/shift")({
@@ -39,6 +41,13 @@ function ShiftPage() {
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showDropModal, setShowDropModal] = useState(false);
+
+  // Worker sign-in step
+  const [workerStep, setWorkerStep] = useState<"signin" | "cash">(() => {
+    return getShiftWorker() ? "cash" : "signin";
+  });
+  const [workerName, setWorkerName] = useState("");
+  const [workerPin, setWorkerPin] = useState("");
 
   // Open shift form
   const [openingCash, setOpeningCash] = useState("");
@@ -96,6 +105,38 @@ function ShiftPage() {
       await fetchShift();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleWorkerSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!workerName.trim() || !workerPin.trim()) {
+      setError("Enter your name and PIN");
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    try {
+      const { data, error: rpcErr } = await supabase.rpc("verify_shift_worker", {
+        p_merchant_id: merchant!.id,
+        p_name: workerName.trim(),
+        p_pin: workerPin.trim(),
+      });
+      if (rpcErr || !data) {
+        setError(rpcErr?.message ?? "Invalid name or PIN");
+        return;
+      }
+      const worker = data as { id: string; name: string };
+      setShiftWorker({
+        worker_id: worker.id,
+        merchant_id: merchant!.id,
+        name: worker.name,
+      });
+      setWorkerStep("cash");
+    } catch (err: any) {
+      setError(err.message || "Sign in failed");
     } finally {
       setSubmitting(false);
     }
@@ -185,9 +226,13 @@ function ShiftPage() {
 
         <div className="glass rounded-2xl p-6 text-center">
           <Clock className="mx-auto h-10 w-10 text-muted-foreground" />
-          <h2 className="font-display mt-3 text-2xl text-ink">No Active Shift</h2>
+          <h2 className="font-display mt-3 text-2xl text-ink">
+            {workerStep === "signin" ? "Start a Shift" : "Opening Cash Count"}
+          </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Start a shift to begin processing orders and tracking cash.
+            {workerStep === "signin"
+              ? "Which staff are you? Sign in to start your shift."
+              : "Start a shift to begin processing orders and tracking cash."}
           </p>
 
           {error && (
@@ -196,43 +241,108 @@ function ShiftPage() {
             </div>
           )}
 
-          <div className="mt-6 space-y-3 text-left">
-            <div>
-              <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                Opening cash count
-              </label>
-              <input
-                type="number"
-                value={openingCash}
-                onChange={(e) => setOpeningCash(e.target.value)}
-                placeholder="How much cash is in the drawer?"
-                className="mt-1.5 h-12 w-full rounded-xl bg-mist px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
-              />
+          {/* Step 1: Worker sign-in */}
+          {workerStep === "signin" && (
+            <form onSubmit={handleWorkerSignIn} className="mt-6 space-y-3 text-left">
+              <div>
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Your name
+                </label>
+                <input
+                  type="text"
+                  value={workerName}
+                  onChange={(e) => setWorkerName(e.target.value)}
+                  placeholder="e.g. Ram"
+                  autoComplete="off"
+                  className="mt-1.5 h-12 w-full rounded-xl bg-mist px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  PIN
+                </label>
+                <input
+                  type="password"
+                  value={workerPin}
+                  onChange={(e) => setWorkerPin(e.target.value)}
+                  placeholder="Enter PIN"
+                  maxLength={8}
+                  className="mt-1.5 h-12 w-full rounded-xl bg-mist px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={submitting || !workerName.trim() || !workerPin.trim()}
+                className="grid h-12 w-full place-items-center rounded-xl bg-ink text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Continue"
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* Step 2: Opening cash count */}
+          {workerStep === "cash" && (
+            <div className="mt-6 space-y-3 text-left">
+              <div className="flex items-center justify-between rounded-xl bg-mist px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-ink">
+                    {getShiftWorker()?.name ?? "Staff"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkerStep("signin");
+                    setWorkerName("");
+                    setWorkerPin("");
+                  }}
+                  className="text-xs text-muted-foreground hover:text-ink"
+                >
+                  Change
+                </button>
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Opening cash count
+                </label>
+                <input
+                  type="number"
+                  value={openingCash}
+                  onChange={(e) => setOpeningCash(e.target.value)}
+                  placeholder="How much cash is in the drawer?"
+                  className="mt-1.5 h-12 w-full rounded-xl bg-mist px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Notes (optional)
+                </label>
+                <input
+                  type="text"
+                  value={openNotes}
+                  onChange={(e) => setOpenNotes(e.target.value)}
+                  placeholder="e.g. Starting shift handover from Priya"
+                  className="mt-1.5 h-12 w-full rounded-xl bg-mist px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
+                />
+              </div>
+              <button
+                onClick={handleOpenShift}
+                disabled={submitting}
+                className="grid h-12 w-full place-items-center rounded-xl bg-ink text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Start Shift"
+                )}
+              </button>
             </div>
-            <div>
-              <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                Notes (optional)
-              </label>
-              <input
-                type="text"
-                value={openNotes}
-                onChange={(e) => setOpenNotes(e.target.value)}
-                placeholder="e.g. Starting shift handover from Priya"
-                className="mt-1.5 h-12 w-full rounded-xl bg-mist px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
-              />
-            </div>
-            <button
-              onClick={handleOpenShift}
-              disabled={submitting}
-              className="grid h-12 w-full place-items-center rounded-xl bg-ink text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Start Shift"
-              )}
-            </button>
-          </div>
+          )}
         </div>
       </div>
     );

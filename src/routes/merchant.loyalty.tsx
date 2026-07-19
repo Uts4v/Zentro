@@ -359,11 +359,12 @@ function MerchantLoyalty() {
     if (!redeemCode.trim()) return;
     setRedeemLoading(true);
     setRedeemResult(null);
+    const code = redeemCode.trim().toUpperCase();
 
-    // Try punch claim first
+    // Try punch claim RPC first
     try {
       const { data, error } = await supabase.rpc("confirm_punch_claim", {
-        p_code: redeemCode.trim().toUpperCase(),
+        p_code: code,
       });
       if (!error && data && (data as any).success) {
         const result = data as any;
@@ -373,7 +374,6 @@ function MerchantLoyalty() {
           customer_name: result.customer_name,
           reward_label: result.reward_label,
         });
-        // Log activity for merchant history
         if (result.customer_id) {
           const merchantId = await getMerchantId();
           const { error: logErr } = await supabase.from("activity_log").insert({
@@ -382,13 +382,59 @@ function MerchantLoyalty() {
             activity_type: "punch_reward_claimed",
             title: "Punch card reward confirmed",
             description: `${result.customer_name ?? "Customer"} claimed punch card reward — ${result.reward_label ?? "Free item"}`,
-            metadata: { code: redeemCode.trim().toUpperCase() },
+            metadata: { code },
           });
           if (logErr) console.error("activity_log insert failed:", logErr.message);
         }
         setRedeemCode("");
         setRedeemLoading(false);
         return;
+      }
+    } catch { }
+
+    // Fallback: query orders table directly for punch card reward orders
+    try {
+      const merchantId = await getMerchantId();
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("id, customer_id")
+        .eq("merchant_id", merchantId)
+        .eq("status", "pending")
+        .eq("notes", "Punch card reward claimed")
+        .order("created_at", { ascending: false });
+
+      if (orders && orders.length > 0) {
+        const match = orders.find((o: any) => {
+          const uuid = o.id.replace(/-/g, "").toUpperCase();
+          return uuid.startsWith(code);
+        });
+
+        if (match) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", match.customer_id)
+            .single();
+
+          setRedeemResult({
+            success: true,
+            message: "Punch reward confirmed!",
+            customer_name: profile?.full_name ?? "Customer",
+            reward_label: "Punch card reward",
+          });
+          const { error: logErr } = await supabase.from("activity_log").insert({
+            customer_id: match.customer_id,
+            merchant_id: merchantId,
+            activity_type: "punch_reward_claimed",
+            title: "Punch card reward confirmed",
+            description: `${profile?.full_name ?? "Customer"} claimed punch card reward — Free item`,
+            metadata: { code },
+          });
+          if (logErr) console.error("activity_log insert failed:", logErr.message);
+          setRedeemCode("");
+          setRedeemLoading(false);
+          return;
+        }
       }
     } catch { }
 

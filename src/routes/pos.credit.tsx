@@ -16,6 +16,9 @@ import {
   CreditCard,
   X,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Receipt,
 } from "lucide-react";
 
 export const Route = createFileRoute("/pos/credit")({
@@ -51,6 +54,7 @@ function CreditPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
 
   // Fetch accounts
   useEffect(() => {
@@ -238,31 +242,94 @@ function CreditPage() {
             </p>
           ) : (
             <div className="mt-3 space-y-1.5">
-              {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between rounded-xl bg-mist px-3 py-2 text-xs"
-                >
-                  <div>
-                    <span
-                      className={`font-medium ${
-                        tx.type === "charge" ? "text-rose-600" : "text-emerald-600"
-                      }`}
+              {transactions.map((tx) => {
+                const isExpanded = expandedTxId === tx.id;
+                const hasOrder = tx.type === "charge" && tx.order;
+                return (
+                  <div key={tx.id}>
+                    <div
+                      className={`flex items-center justify-between rounded-xl bg-mist px-3 py-2 text-xs ${hasOrder ? "cursor-pointer hover:bg-mist/80" : ""}`}
+                      onClick={() => {
+                        if (hasOrder) {
+                          setExpandedTxId(isExpanded ? null : tx.id);
+                        }
+                      }}
                     >
-                      {tx.type === "charge" ? "+" : "−"}NPR{" "}
-                      {tx.amount.toLocaleString()}
-                    </span>
-                    {tx.notes && (
-                      <span className="ml-2 text-muted-foreground">
-                        {tx.notes}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`font-medium ${
+                            tx.type === "charge" ? "text-rose-600" : "text-emerald-600"
+                          }`}
+                        >
+                          {tx.type === "charge" ? "+" : "−"}NPR{" "}
+                          {tx.amount.toLocaleString()}
+                        </span>
+                        {tx.order?.receipt_number && (
+                          <span className="flex items-center gap-0.5 rounded bg-mist px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            <Receipt className="h-2.5 w-2.5" />
+                            {tx.order.receipt_number}
+                          </span>
+                        )}
+                        {tx.notes && (
+                          <span className="text-muted-foreground">
+                            {tx.notes}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">
+                          {new Date(tx.created_at).toLocaleDateString("en-CA")}
+                        </span>
+                        {hasOrder && (
+                          isExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                          )
+                        )}
+                      </div>
+                    </div>
+                    {isExpanded && tx.order && (
+                      <div className="ml-3 mt-1 rounded-lg border border-border bg-white/50 px-3 py-2 text-xs">
+                        <div className="mb-1.5 flex items-center justify-between text-muted-foreground">
+                          <span>
+                            {tx.order.order_type === "dine_in"
+                              ? `Dine-in${tx.order.table_name_snapshot ? ` · ${tx.order.table_name_snapshot}` : ""}`
+                              : tx.order.order_type === "delivery"
+                                ? "Delivery"
+                                : "Pickup"}
+                            {tx.order.walk_in_name && ` · ${tx.order.walk_in_name}`}
+                          </span>
+                          <span>
+                            {new Date(tx.order.created_at).toLocaleString("en-CA", {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {tx.order.items.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between">
+                              <span className="text-ink">
+                                {item.quantity}× {item.name}
+                              </span>
+                              <span className="text-muted-foreground">
+                                NPR {item.subtotal.toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between border-t border-border pt-1.5 font-medium text-ink">
+                          <span>Total</span>
+                          <span>NPR {tx.order.total_amount.toLocaleString()}</span>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <span className="text-muted-foreground">
-                    {new Date(tx.created_at).toLocaleDateString("en-CA")}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

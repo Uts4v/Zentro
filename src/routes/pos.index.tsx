@@ -17,6 +17,7 @@ import {
   ShoppingBag,
   CreditCardIcon,
   Printer,
+  AlertTriangle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/pos/")({
@@ -63,6 +64,8 @@ function POSDashboard() {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
 
   const merchantId = merchant?.id;
 
@@ -179,6 +182,19 @@ function POSDashboard() {
         )
       );
     } catch {}
+  }
+
+  async function handleCancel(order: Order) {
+    setCancelling(order.id);
+    try {
+      await orderApi.cancel(order.id);
+      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      setConfirmCancelId(null);
+    } catch {
+      setConfirmCancelId(null);
+    } finally {
+      setCancelling(null);
+    }
   }
 
   function formatTimeAgo(dateStr: string) {
@@ -304,6 +320,10 @@ function POSDashboard() {
                 setExpandedId(expandedId === order.id ? null : order.id)
               }
               onAdvance={handleAdvance}
+              onCancel={handleCancel}
+              confirmCancelId={confirmCancelId}
+              setConfirmCancelId={setConfirmCancelId}
+              cancelling={cancelling}
               formatTimeAgo={formatTimeAgo}
             />
           ))}
@@ -313,12 +333,18 @@ function POSDashboard() {
   );
 }
 
+const CANCELLABLE_STATUSES = new Set(["pending", "confirmed", "preparing"]);
+
 function OrderCard({
   order,
   isNew,
   isExpanded,
   onToggleExpand,
   onAdvance,
+  onCancel,
+  confirmCancelId,
+  setConfirmCancelId,
+  cancelling,
   formatTimeAgo,
 }: {
   order: Order;
@@ -326,6 +352,10 @@ function OrderCard({
   isExpanded: boolean;
   onToggleExpand: () => void;
   onAdvance: (order: Order) => void;
+  onCancel: (order: Order) => void;
+  confirmCancelId: string | null;
+  setConfirmCancelId: (id: string | null) => void;
+  cancelling: string | null;
   formatTimeAgo: (dateStr: string) => string;
 }) {
   const isDineIn = order.order_type === "dine_in";
@@ -396,6 +426,35 @@ function OrderCard({
         </div>
       )}
 
+      {/* Cancel confirmation */}
+      {confirmCancelId === order.id && (
+        <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+          <div className="flex items-center gap-2 text-xs text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>Cancel this order? This can't be undone.</span>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={() => setConfirmCancelId(null)}
+              className="flex-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-mist"
+            >
+              Keep order
+            </button>
+            <button
+              onClick={() => onCancel(order)}
+              disabled={cancelling === order.id}
+              className="flex-1 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {cancelling === order.id ? (
+                <Loader2 className="mx-auto h-3 w-3 animate-spin" />
+              ) : (
+                "Yes, cancel"
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="mt-3 flex gap-2">
         {order.status !== "ready" && (
@@ -415,6 +474,15 @@ function OrderCard({
             <CreditCard className="h-3 w-3" />
             Pay Now
           </Link>
+        )}
+        {CANCELLABLE_STATUSES.has(order.status) && confirmCancelId !== order.id && (
+          <button
+            onClick={() => setConfirmCancelId(order.id)}
+            className="flex items-center gap-1 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="h-3 w-3" />
+            Cancel
+          </button>
         )}
         <Link
           to={`/pos/bill/${order.id}` as any}

@@ -41,17 +41,18 @@ function ReceiptPage() {
     if (!receiptRef.current || !receipt) return;
     setDownloading(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(receiptRef.current, {
+      const { domToPng } = await import("modern-screenshot");
+      const dataUrl = await domToPng(receiptRef.current, {
         backgroundColor: "#ffffff",
         scale: 2,
+        timeout: 15000,
       });
       const link = document.createElement("a");
       link.download = `receipt-${receipt.receipt_number ?? receipt.order_id.slice(0, 8)}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.href = dataUrl;
       link.click();
-    } catch {
-      // silent
+    } catch (e) {
+      console.error("Download failed:", e);
     } finally {
       setDownloading(false);
     }
