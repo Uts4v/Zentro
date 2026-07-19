@@ -45,9 +45,14 @@ function Auth() {
       (event, session) => {
         if (event === "SIGNED_IN" && session) {
           subscription.unsubscribe();
-          // Clear potential URL params so the UI doesn't mistakenly re-handle them
           window.history.replaceState(null, "", window.location.pathname);
-          navigate({ to: (redirect || "/") as any, replace: true });
+          const intent = sessionStorage.getItem(OAUTH_INTENT_KEY);
+          if (intent === "merchant") {
+            sessionStorage.removeItem(OAUTH_INTENT_KEY);
+            navigate({ to: "/merchant" as any, replace: true });
+          } else {
+            navigate({ to: (redirect || "/") as any, replace: true });
+          }
         }
       }
     );
@@ -60,7 +65,13 @@ function Auth() {
       if (session) {
         try { subscription.unsubscribe(); } catch {}
         window.history.replaceState(null, "", window.location.pathname);
-        navigate({ to: (redirect || "/") as any, replace: true });
+        const intent = sessionStorage.getItem(OAUTH_INTENT_KEY);
+        if (intent === "merchant") {
+          sessionStorage.removeItem(OAUTH_INTENT_KEY);
+          navigate({ to: "/merchant" as any, replace: true });
+        } else {
+          navigate({ to: (redirect || "/") as any, replace: true });
+        }
       } else {
         setOauthLoading(false);
       }
