@@ -108,6 +108,17 @@ export interface MerchantProfile {
   allow_dine_in?: boolean;
 }
 
+export interface MerchantRoom {
+  id: string;
+  merchant_id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MerchantTable {
   id: string;
   merchant_id: string;
@@ -115,6 +126,7 @@ export interface MerchantTable {
   table_number: number;
   public_token: string;
   is_active: boolean;
+  room_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1405,6 +1417,49 @@ export const notificationApi = {
 
 // ── Tables ───────────────────────────────────────────────────────────────────
 
+export const roomApi = {
+  list: async (): Promise<MerchantRoom[]> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+    const { data, error } = await supabase
+      .from("merchant_rooms")
+      .select("*")
+      .eq("merchant_id", merchant.id)
+      .order("sort_order")
+      .order("name");
+    if (error) throw new Error(error.message);
+    return (data ?? []) as MerchantRoom[];
+  },
+
+  create: async (name: string, description?: string): Promise<MerchantRoom> => {
+    const userId = await getCurrentUserId();
+    const merchant = await getMerchantProfile(userId);
+    const { data, error } = await supabase
+      .from("merchant_rooms")
+      .insert({ merchant_id: merchant.id, name, description: description ?? "" })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as MerchantRoom;
+  },
+
+  update: async (id: string, updates: Partial<Pick<MerchantRoom, "name" | "description" | "is_active" | "sort_order">>): Promise<MerchantRoom> => {
+    const { data, error } = await supabase
+      .from("merchant_rooms")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as MerchantRoom;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const { error } = await supabase.from("merchant_rooms").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+};
+
 export const tableApi = {
   list: async (): Promise<MerchantTable[]> => {
     const userId = await getCurrentUserId();
@@ -1418,19 +1473,19 @@ export const tableApi = {
     return (data ?? []) as MerchantTable[];
   },
 
-  create: async (name: string, table_number: number): Promise<MerchantTable> => {
+  create: async (name: string, table_number: number, room_id?: string | null): Promise<MerchantTable> => {
     const userId = await getCurrentUserId();
     const merchant = await getMerchantProfile(userId);
     const { data, error } = await supabase
       .from("merchant_tables")
-      .insert({ merchant_id: merchant.id, name, table_number })
+      .insert({ merchant_id: merchant.id, name, table_number, room_id: room_id ?? null })
       .select()
       .single();
     if (error) throw new Error(error.message);
     return data as MerchantTable;
   },
 
-  bulkGenerate: async (count: number, prefix: string): Promise<MerchantTable[]> => {
+  bulkGenerate: async (count: number, prefix: string, room_id?: string | null): Promise<MerchantTable[]> => {
     const userId = await getCurrentUserId();
     const merchant = await getMerchantProfile(userId);
 
@@ -1441,11 +1496,11 @@ export const tableApi = {
       .eq("merchant_id", merchant.id);
     const existingNumbers = new Set((existing ?? []).map((t) => t.table_number));
 
-    const rows: { merchant_id: string; name: string; table_number: number }[] = [];
+    const rows: { merchant_id: string; name: string; table_number: number; room_id: string | null }[] = [];
     let nextNum = 1;
     for (let i = 0; i < count && rows.length < count; i++) {
       while (existingNumbers.has(nextNum)) nextNum++;
-      rows.push({ merchant_id: merchant.id, name: `${prefix} ${nextNum}`, table_number: nextNum });
+      rows.push({ merchant_id: merchant.id, name: `${prefix} ${nextNum}`, table_number: nextNum, room_id: room_id ?? null });
       existingNumbers.add(nextNum);
       nextNum++;
     }
@@ -1475,6 +1530,17 @@ export const tableApi = {
     const { data, error } = await supabase
       .from("merchant_tables")
       .update({ is_active })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data as MerchantTable;
+  },
+
+  setRoom: async (id: string, room_id: string | null): Promise<MerchantTable> => {
+    const { data, error } = await supabase
+      .from("merchant_tables")
+      .update({ room_id })
       .eq("id", id)
       .select()
       .single();

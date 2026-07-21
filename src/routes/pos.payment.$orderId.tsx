@@ -273,7 +273,7 @@ function PaymentPage() {
             <div ref={receiptRef} className="print:m-0 print:p-0">
               <Receipt
                 receiptNumber={receipt.receipt_number}
-                merchantName={receipt.merchant_name}
+                billType={receipt.payment_method === "credit" ? "Credit Bill" : "Order Bill"}
                 merchantAddress={receipt.merchant_address ?? undefined}
                 merchantPhone={receipt.merchant_phone ?? undefined}
                 merchantLogo={receipt.merchant_logo}

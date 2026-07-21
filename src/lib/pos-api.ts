@@ -699,11 +699,11 @@ export const posApi = {
     return {
       order_id: order.id,
       receipt_number: order.receipt_number,
-      merchant_name: merchant?.store_name ?? "Store",
       merchant_address: merchant?.address ?? null,
       merchant_phone: merchant?.phone ?? null,
       merchant_logo: merchant?.logo_url ?? null,
       order_type: order.order_type,
+      payment_method: order.payment_method ?? null,
       table_name: order.table_name_snapshot || order.table?.name || null,
       cashier_name: cashierName,
       is_walk_in: order.is_walk_in,
@@ -884,6 +884,73 @@ export interface DailyReportData {
     cash_difference: number;
     cash_drops: number;
     cash_payouts: number;
+    total_points_earned: number;
+    walk_in_orders: number;
+    walk_in_sales: number;
+    registered_orders: number;
+    registered_sales: number;
+    dine_in_orders: number;
+    dine_in_sales: number;
+    pickup_orders: number;
+    pickup_sales: number;
+    delivery_orders: number;
+    delivery_sales: number;
+    total_items_sold: number;
+    cancelled_orders: number;
+    cancelled_total: number;
+    credit_charges: number;
+    credit_payments: number;
+  };
+  merchant_name: string;
+  merchant_address: string | null;
+  merchant_phone: string | null;
+}
+
+export interface FiscalYearReportData {
+  start_date: string;
+  end_date: string;
+  monthly_breakdown: {
+    month: string;
+    revenue: number;
+    orders: number;
+    items: number;
+  }[];
+  order_details: {
+    bill_no: string | null;
+    item_name: string;
+    quantity: number;
+    price: number;
+    subtotal: number;
+    order_total: number;
+    discount: number;
+    grand_total: number;
+    payment_method: string;
+    cash_amount: number;
+    fonepay_amount: number;
+    date: string;
+    order_type: string;
+    customer_type: string;
+    table_name: string | null;
+    staff: string | null;
+  }[];
+  items_sold: {
+    name: string;
+    quantity: number;
+    total_revenue: number;
+  }[];
+  staff_activity: {
+    name: string;
+    order_count: number;
+    total_sales: number;
+  }[];
+  totals: {
+    total_orders: number;
+    total_sales: number;
+    cash_sales: number;
+    fonepay_sales: number;
+    credit_sales: number;
+    split_sales: number;
+    total_discount: number;
     total_points_earned: number;
     walk_in_orders: number;
     walk_in_sales: number;
@@ -1172,6 +1239,209 @@ export const reportApi = {
         cash_difference: cashDiff,
         cash_drops: cashDrops,
         cash_payouts: cashPayouts,
+        total_points_earned: totalPointsEarned,
+        walk_in_orders: walkInOrders.length,
+        walk_in_sales: walkInOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        registered_orders: registeredOrders.length,
+        registered_sales: registeredOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        dine_in_orders: dineInOrders.length,
+        dine_in_sales: dineInOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        pickup_orders: pickupOrders.length,
+        pickup_sales: pickupOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        delivery_orders: deliveryOrders.length,
+        delivery_sales: deliveryOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),
+        total_items_sold: totalItemsSold,
+        cancelled_orders: cancelledOrders.length,
+        cancelled_total: cancelledTotal,
+        credit_charges: creditCharges,
+        credit_payments: creditPayments,
+      },
+      merchant_name: merchant.store_name,
+      merchant_address: merchant.address,
+      merchant_phone: merchant.phone,
+    };
+  },
+
+  getFiscalYearReport: async (startDate: string, endDate: string): Promise<FiscalYearReportData> => {
+    const merchant = await getMerchantProfileCached();
+    const dayStart = new Date(`${startDate}T00:00:00`).toISOString();
+    const dayEnd = new Date(`${endDate}T23:59:59.999`).toISOString();
+
+    // ── Parallel fetches ──
+    const [
+      { data: orders },
+      { data: orderItems },
+      { data: shifts },
+      { data: creditTxs },
+    ] = await Promise.all([
+      supabase
+        .from("orders")
+        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, discount_amount, points_earned, processed_by, created_at, paid_at, cash_received, fonepay_amount")
+        .eq("merchant_id", merchant.id)
+        .gte("created_at", dayStart)
+        .lte("created_at", dayEnd)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("order_items")
+        .select("order_id, name, price, quantity, subtotal, orders!inner(merchant_id, created_at)")
+        .eq("orders.merchant_id", merchant.id)
+        .gte("orders.created_at", dayStart)
+        .lte("orders.created_at", dayEnd),
+      supabase
+        .from("cash_shifts")
+        .select("id, worker_name, opened_by, closed_by, opened_at, closed_at, opening_cash, closing_cash_actual, cash_difference, status")
+        .eq("merchant_id", merchant.id)
+        .gte("opened_at", dayStart)
+        .lte("opened_at", dayEnd)
+        .order("opened_at", { ascending: true }),
+      supabase
+        .from("credit_transactions")
+        .select("id, type, amount, balance_after, credit_account_id, recorded_by, created_at, credit_accounts!inner(merchant_id, full_name)")
+        .eq("credit_accounts.merchant_id", merchant.id)
+        .gte("created_at", dayStart)
+        .lte("created_at", dayEnd)
+        .order("created_at", { ascending: true }),
+    ]);
+
+    // ── Resolve profile names ──
+    const userIds = new Set<string>();
+    (shifts ?? []).forEach((s: any) => {
+      if (s.opened_by) userIds.add(s.opened_by);
+      if (s.closed_by) userIds.add(s.closed_by);
+    });
+    (orders ?? []).forEach((o: any) => {
+      if (o.processed_by) userIds.add(o.processed_by);
+    });
+    (creditTxs ?? []).forEach((t: any) => {
+      if (t.recorded_by) userIds.add(t.recorded_by);
+    });
+    const nameMap: Record<string, string> = {};
+    if (userIds.size > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles").select("id, full_name").in("id", [...userIds]);
+      (profiles ?? []).forEach((p: any) => { nameMap[p.id] = p.full_name ?? "Unknown"; });
+    }
+
+    // ── Build order lookup for detail rows ──
+    const orderMap: Record<string, any> = {};
+    (orders ?? []).forEach((o: any) => { orderMap[o.id] = o; });
+
+    // ── Build order_details (one row per item) ──
+    const orderDetails: FiscalYearReportData["order_details"] = [];
+    (orderItems ?? []).forEach((item: any) => {
+      const o = orderMap[item.order_id];
+      if (!o) return;
+      const discount = Number(o.discount_amount ?? 0);
+      const orderTotal = Number(o.total_amount);
+      // Distribute discount proportionally across items
+      const itemsSubtotal = (orderItems ?? [])
+        .filter((i: any) => i.order_id === o.id)
+        .reduce((s: number, i: any) => s + Number(i.subtotal), 0);
+      const itemDiscount = itemsSubtotal > 0 ? (Number(item.subtotal) / itemsSubtotal) * discount : 0;
+      const grandTotal = itemsSubtotal > 0 ? Number(item.subtotal) - itemDiscount : Number(item.subtotal);
+      const cashReceived = Number(o.cash_received ?? 0);
+      const fonepayAmount = Number(o.fonepay_amount ?? 0);
+
+      orderDetails.push({
+        bill_no: o.receipt_number ?? "",
+        item_name: item.name,
+        quantity: item.quantity,
+        price: Number(item.price),
+        subtotal: Number(item.subtotal),
+        order_total: orderTotal,
+        discount: Math.round(itemDiscount * 100) / 100,
+        grand_total: Math.round(grandTotal * 100) / 100,
+        payment_method: o.payment_method ?? "",
+        cash_amount: cashReceived,
+        fonepay_amount: fonepayAmount,
+        date: o.created_at,
+        order_type: o.order_type ?? "",
+        customer_type: o.is_walk_in ? "Walk-in" : "Registered",
+        table_name: o.table_name_snapshot ?? "",
+        staff: o.processed_by ? (nameMap[o.processed_by] ?? "") : "",
+      });
+    });
+    orderDetails.sort((a, b) => a.date.localeCompare(b.date));
+
+    // ── Calculate totals ──
+    const paidOrders = (orders ?? []).filter((o: any) => o.payment_status === "paid");
+    const cancelledOrders = (orders ?? []).filter((o: any) => o.status === "cancelled");
+
+    const totalSales = paidOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const cashSales = paidOrders.filter((o: any) => o.payment_method === "cash").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const fonepaySales = paidOrders.filter((o: any) => o.payment_method === "fonepay").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const creditSales = paidOrders.filter((o: any) => o.payment_method === "credit").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const splitSales = paidOrders.filter((o: any) => o.payment_method === "split").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const totalDiscount = paidOrders.reduce((s: number, o: any) => s + Number(o.discount_amount ?? 0), 0);
+    const totalPointsEarned = paidOrders.reduce((s: number, o: any) => s + Number(o.points_earned ?? 0), 0);
+
+    const walkInOrders = paidOrders.filter((o: any) => o.is_walk_in);
+    const registeredOrders = paidOrders.filter((o: any) => !o.is_walk_in);
+    const dineInOrders = paidOrders.filter((o: any) => o.order_type === "dine_in");
+    const pickupOrders = paidOrders.filter((o: any) => o.order_type === "pickup");
+    const deliveryOrders = paidOrders.filter((o: any) => o.order_type === "delivery");
+
+    const totalItemsSold = (orderItems ?? []).reduce((s: number, i: any) => s + i.quantity, 0);
+    const cancelledTotal = cancelledOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0);
+    const creditCharges = (creditTxs ?? []).filter((t: any) => t.type === "charge").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const creditPayments = (creditTxs ?? []).filter((t: any) => t.type === "payment").reduce((s: number, t: any) => s + Number(t.amount), 0);
+
+    // ── Aggregate items sold ──
+    const itemMap: Record<string, { name: string; quantity: number; total_revenue: number }> = {};
+    (orderItems ?? []).forEach((i: any) => {
+      const key = i.name;
+      if (!itemMap[key]) itemMap[key] = { name: i.name, quantity: 0, total_revenue: 0 };
+      itemMap[key].quantity += i.quantity;
+      itemMap[key].total_revenue += Number(i.subtotal);
+    });
+    const itemsSold = Object.values(itemMap).sort((a, b) => b.total_revenue - a.total_revenue);
+
+    // ── Staff activity ──
+    const staffMap: Record<string, { name: string; order_count: number; total_sales: number }> = {};
+    paidOrders.forEach((o: any) => {
+      const uid = o.processed_by;
+      if (!uid) return;
+      const name = nameMap[uid] ?? "Unknown";
+      if (!staffMap[uid]) staffMap[uid] = { name, order_count: 0, total_sales: 0 };
+      staffMap[uid].order_count += 1;
+      staffMap[uid].total_sales += Number(o.total_amount);
+    });
+    const staffActivity = Object.values(staffMap).sort((a, b) => b.total_sales - a.total_sales);
+
+    // ── Monthly breakdown ──
+    const monthlyMap: Record<string, { revenue: number; orders: number; items: number }> = {};
+    paidOrders.forEach((o: any) => {
+      const d = new Date(o.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!monthlyMap[key]) monthlyMap[key] = { revenue: 0, orders: 0, items: 0 };
+      monthlyMap[key].revenue += Number(o.total_amount);
+      monthlyMap[key].orders += 1;
+    });
+    (orderItems ?? []).forEach((i: any) => {
+      const d = new Date(i.orders.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!monthlyMap[key]) monthlyMap[key] = { revenue: 0, orders: 0, items: 0 };
+      monthlyMap[key].items += i.quantity;
+    });
+    const monthlyBreakdown = Object.entries(monthlyMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, data]) => ({ month, ...data }));
+
+    return {
+      start_date: startDate,
+      end_date: endDate,
+      monthly_breakdown: monthlyBreakdown,
+      order_details: orderDetails,
+      items_sold: itemsSold.slice(0, 50),
+      staff_activity: staffActivity,
+      totals: {
+        total_orders: paidOrders.length,
+        total_sales: totalSales,
+        cash_sales: cashSales,
+        fonepay_sales: fonepaySales,
+        credit_sales: creditSales,
+        split_sales: splitSales,
+        total_discount: totalDiscount,
         total_points_earned: totalPointsEarned,
         walk_in_orders: walkInOrders.length,
         walk_in_sales: walkInOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),

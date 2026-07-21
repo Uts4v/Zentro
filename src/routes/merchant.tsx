@@ -25,6 +25,7 @@ import {
   Clock,
   CreditCard,
   CalendarDays,
+  FileText,
 } from "lucide-react";
 
 export const Route = createFileRoute("/merchant")({
@@ -45,6 +46,7 @@ const navItems = [
   { to: "/merchant/shift-workers", label: "Shift Workers", icon: Users },
   { to: "/merchant/shifts", label: "Shifts", icon: Clock },
   { to: "/merchant/daily-report", label: "Daily Report", icon: CalendarDays },
+  { to: "/merchant/fiscal-report", label: "Fiscal Report", icon: FileText },
   { to: "/merchant/credit", label: "Credit Accounts", icon: CreditCard },
 ];
 

@@ -152,7 +152,7 @@ function DailyReportPage() {
         <div ref={reportRef} className="receipt glass rounded-2xl p-6 space-y-0">
           {/* ── Header ── */}
           <div className="border-b border-border pb-3 text-center">
-            <h2 className="font-display text-xl text-ink">{report.merchant_name}</h2>
+            <h2 className="font-display text-xl text-ink">Daily Report</h2>
             {report.merchant_address && <p className="text-[10px] text-muted-foreground">{report.merchant_address}</p>}
             {report.merchant_phone && <p className="text-[10px] text-muted-foreground">Tel: {report.merchant_phone}</p>}
             <p className="mt-2 text-sm font-semibold text-ink">

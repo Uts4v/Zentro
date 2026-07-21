@@ -21,11 +21,11 @@ export const Route = createFileRoute("/pos/bill/$orderId")({
 interface BillData {
   order_id: string;
   receipt_number: string | null;
-  merchant_name: string;
   merchant_address: string | null;
   merchant_phone: string | null;
   merchant_logo: string | null;
   order_type: string;
+  payment_method: string | null;
   table_name: string | null;
   cashier_name: string;
   is_walk_in: boolean;
@@ -270,14 +270,14 @@ function BillPage() {
           {bill.merchant_logo ? (
             <img
               src={bill.merchant_logo}
-              alt={bill.merchant_name}
+              alt="Bill"
               className="mx-auto h-12 w-12 rounded-lg object-cover"
             />
           ) : (
             <Store className="mx-auto h-8 w-8 text-muted-foreground" />
           )}
           <h2 className="font-display mt-2 text-2xl text-ink">
-            {bill.merchant_name}
+            {bill.payment_method === "credit" ? "Credit Bill" : "Order Bill"}
           </h2>
           {bill.merchant_address && (
             <p className="mt-0.5 text-xs text-muted-foreground">

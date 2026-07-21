@@ -38,6 +38,7 @@ import { Route as MerchantOrdersRouteImport } from './routes/merchant.orders'
 import { Route as MerchantMenuRouteImport } from './routes/merchant.menu'
 import { Route as MerchantMembersRouteImport } from './routes/merchant.members'
 import { Route as MerchantLoyaltyRouteImport } from './routes/merchant.loyalty'
+import { Route as MerchantFiscalReportRouteImport } from './routes/merchant.fiscal-report'
 import { Route as MerchantDailyReportRouteImport } from './routes/merchant.daily-report'
 import { Route as MerchantCreditRouteImport } from './routes/merchant.credit'
 import { Route as MerchantAnalyticsRouteImport } from './routes/merchant.analytics'
@@ -203,6 +204,11 @@ const MerchantLoyaltyRoute = MerchantLoyaltyRouteImport.update({
   path: '/loyalty',
   getParentRoute: () => MerchantRoute,
 } as any)
+const MerchantFiscalReportRoute = MerchantFiscalReportRouteImport.update({
+  id: '/fiscal-report',
+  path: '/fiscal-report',
+  getParentRoute: () => MerchantRoute,
+} as any)
 const MerchantDailyReportRoute = MerchantDailyReportRouteImport.update({
   id: '/daily-report',
   path: '/daily-report',
@@ -328,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/merchant/analytics': typeof MerchantAnalyticsRoute
   '/merchant/credit': typeof MerchantCreditRoute
   '/merchant/daily-report': typeof MerchantDailyReportRoute
+  '/merchant/fiscal-report': typeof MerchantFiscalReportRoute
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
   '/merchant/members': typeof MerchantMembersRoute
   '/merchant/menu': typeof MerchantMenuRoute
@@ -375,6 +382,7 @@ export interface FileRoutesByTo {
   '/merchant/analytics': typeof MerchantAnalyticsRoute
   '/merchant/credit': typeof MerchantCreditRoute
   '/merchant/daily-report': typeof MerchantDailyReportRoute
+  '/merchant/fiscal-report': typeof MerchantFiscalReportRoute
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
   '/merchant/members': typeof MerchantMembersRoute
   '/merchant/menu': typeof MerchantMenuRoute
@@ -426,6 +434,7 @@ export interface FileRoutesById {
   '/merchant/analytics': typeof MerchantAnalyticsRoute
   '/merchant/credit': typeof MerchantCreditRoute
   '/merchant/daily-report': typeof MerchantDailyReportRoute
+  '/merchant/fiscal-report': typeof MerchantFiscalReportRoute
   '/merchant/loyalty': typeof MerchantLoyaltyRoute
   '/merchant/members': typeof MerchantMembersRoute
   '/merchant/menu': typeof MerchantMenuRoute
@@ -478,6 +487,7 @@ export interface FileRouteTypes {
     | '/merchant/analytics'
     | '/merchant/credit'
     | '/merchant/daily-report'
+    | '/merchant/fiscal-report'
     | '/merchant/loyalty'
     | '/merchant/members'
     | '/merchant/menu'
@@ -525,6 +535,7 @@ export interface FileRouteTypes {
     | '/merchant/analytics'
     | '/merchant/credit'
     | '/merchant/daily-report'
+    | '/merchant/fiscal-report'
     | '/merchant/loyalty'
     | '/merchant/members'
     | '/merchant/menu'
@@ -575,6 +586,7 @@ export interface FileRouteTypes {
     | '/merchant/analytics'
     | '/merchant/credit'
     | '/merchant/daily-report'
+    | '/merchant/fiscal-report'
     | '/merchant/loyalty'
     | '/merchant/members'
     | '/merchant/menu'
@@ -831,6 +843,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MerchantLoyaltyRouteImport
       parentRoute: typeof MerchantRoute
     }
+    '/merchant/fiscal-report': {
+      id: '/merchant/fiscal-report'
+      path: '/fiscal-report'
+      fullPath: '/merchant/fiscal-report'
+      preLoaderRoute: typeof MerchantFiscalReportRouteImport
+      parentRoute: typeof MerchantRoute
+    }
     '/merchant/daily-report': {
       id: '/merchant/daily-report'
       path: '/daily-report'
@@ -987,6 +1006,7 @@ interface MerchantRouteChildren {
   MerchantAnalyticsRoute: typeof MerchantAnalyticsRoute
   MerchantCreditRoute: typeof MerchantCreditRoute
   MerchantDailyReportRoute: typeof MerchantDailyReportRoute
+  MerchantFiscalReportRoute: typeof MerchantFiscalReportRoute
   MerchantLoyaltyRoute: typeof MerchantLoyaltyRoute
   MerchantMembersRoute: typeof MerchantMembersRoute
   MerchantMenuRoute: typeof MerchantMenuRoute
@@ -1004,6 +1024,7 @@ const MerchantRouteChildren: MerchantRouteChildren = {
   MerchantAnalyticsRoute: MerchantAnalyticsRoute,
   MerchantCreditRoute: MerchantCreditRoute,
   MerchantDailyReportRoute: MerchantDailyReportRoute,
+  MerchantFiscalReportRoute: MerchantFiscalReportRoute,
   MerchantLoyaltyRoute: MerchantLoyaltyRoute,
   MerchantMembersRoute: MerchantMembersRoute,
   MerchantMenuRoute: MerchantMenuRoute,

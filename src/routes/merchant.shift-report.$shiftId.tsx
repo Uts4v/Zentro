@@ -115,7 +115,7 @@ function ShiftReportPage() {
       <div ref={reportRef} className="receipt glass rounded-2xl p-6">
         {/* Header */}
         <div className="border-b border-border pb-3 text-center">
-          <h2 className="font-display text-xl text-ink">{merchant_name}</h2>
+          <h2 className="font-display text-xl text-ink">Shift Report</h2>
           {merchant_address && <p className="text-[10px] text-muted-foreground">{merchant_address}</p>}
           {merchant_phone && <p className="text-[10px] text-muted-foreground">Tel: {merchant_phone}</p>}
           <p className="mt-2 text-sm font-semibold text-ink">SHIFT REPORT</p>

@@ -381,7 +381,14 @@ function MerchantCredit() {
                             {tx.order.receipt_number}
                           </span>
                         )}
-                        {tx.notes && (
+                        {tx.order?.items && tx.order.items.length > 0 && (
+                          <span className="max-w-[180px] truncate text-muted-foreground">
+                            {tx.order.items.length === 1
+                              ? tx.order.items[0].name
+                              : `${tx.order.items[0].name} +${tx.order.items.length - 1} more`}
+                          </span>
+                        )}
+                        {tx.notes && !tx.order && (
                           <span className="text-muted-foreground">
                             {tx.notes}
                           </span>

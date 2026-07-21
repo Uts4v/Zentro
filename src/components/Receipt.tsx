@@ -1,7 +1,7 @@
 // components/Receipt.tsx — Reusable receipt component for POS
 export interface ReceiptProps {
   receiptNumber: string;
-  merchantName: string;
+  billType: string;
   merchantAddress?: string;
   merchantPhone?: string;
   merchantLogo?: string | null;
@@ -29,7 +29,7 @@ export interface ReceiptProps {
 
 export function Receipt({
   receiptNumber,
-  merchantName,
+  billType,
   merchantAddress,
   merchantPhone,
   orderType,
@@ -66,7 +66,7 @@ export function Receipt({
     <div className="receipt mx-auto w-[320px] bg-white p-4 font-mono text-xs text-black shadow-lg">
       {/* Header */}
       <div className="text-center">
-        <p className="text-lg font-bold">{merchantName}</p>
+        <p className="text-lg font-bold">{billType}</p>
         {merchantAddress && (
           <p className="text-[10px] text-gray-600">{merchantAddress}</p>
         )}

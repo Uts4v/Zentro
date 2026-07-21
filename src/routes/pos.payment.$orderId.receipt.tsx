@@ -60,7 +60,7 @@ function ReceiptPage() {
 
   function handleWhatsApp() {
     if (!receipt) return;
-    const text = `Receipt ${receipt.receipt_number} — NPR ${receipt.total.toLocaleString()} — Thank you for visiting ${receipt.merchant_name}!`;
+    const text = `Receipt ${receipt.receipt_number} — NPR ${receipt.total.toLocaleString()} — Thank you!`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   }
 
@@ -132,7 +132,7 @@ function ReceiptPage() {
         <div ref={receiptRef} className="print:m-0 print:p-0">
           <Receipt
             receiptNumber={receipt.receipt_number}
-            merchantName={receipt.merchant_name}
+            billType={receipt.payment_method === "credit" ? "Credit Bill" : "Order Bill"}
             merchantAddress={receipt.merchant_address ?? undefined}
             merchantPhone={receipt.merchant_phone ?? undefined}
             merchantLogo={receipt.merchant_logo}
