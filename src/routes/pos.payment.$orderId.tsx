@@ -279,6 +279,7 @@ function PaymentPage() {
                 merchantLogo={receipt.merchant_logo}
                 orderType={receipt.order_type as "dine_in" | "pickup"}
                 tableName={receipt.table_name}
+                roomName={receipt.room_name}
                 cashierName={receipt.cashier_name}
                 isWalkIn={receipt.is_walk_in}
                 walkInName={receipt.walk_in_name ?? undefined}
@@ -349,7 +350,7 @@ function PaymentPage() {
             </p>
             <p className="mt-1 text-sm font-medium text-ink">
               {order.order_type === "dine_in"
-                ? order.table_name_snapshot || "Table"
+                ? `${order.room_name_snapshot ? `${order.room_name_snapshot} · ` : ""}${order.table_name_snapshot || "Table"}`
                 : "Pickup"}{" "}
               · {order.order_type === "dine_in" ? "Dine-in" : "Pickup"}
             </p>

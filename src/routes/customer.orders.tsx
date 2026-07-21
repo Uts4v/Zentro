@@ -179,7 +179,7 @@ function OrderRow({
           {order.order_type === "dine_in" && order.table_name_snapshot && (
             <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-amber-700">
               <UtensilsCrossed className="h-3 w-3" />
-              Dine-in · {order.table_name_snapshot}
+              Dine-in · {order.room_name_snapshot ? `${order.room_name_snapshot} · ` : ""}{order.table_name_snapshot}
             </p>
           )}
           <p className="text-xs text-muted-foreground">{date}</p>

@@ -156,7 +156,7 @@ function OrderPage() {
         {order.order_type === "dine_in" && order.table_name_snapshot && (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800">
             <UtensilsCrossed className="h-3.5 w-3.5" />
-            Dine-in · {order.table_name_snapshot}
+            Dine-in · {order.room_name_snapshot ? `${order.room_name_snapshot} · ` : ""}{order.table_name_snapshot}
           </div>
         )}
 

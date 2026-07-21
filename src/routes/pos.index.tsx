@@ -151,6 +151,7 @@ function POSDashboard() {
       result = result.filter(
         (o) =>
           o.table_name_snapshot?.toLowerCase().includes(q) ||
+          o.room_name_snapshot?.toLowerCase().includes(q) ||
           o.walk_in_name?.toLowerCase().includes(q) ||
           o.receipt_number?.toLowerCase().includes(q)
       );
@@ -372,7 +373,7 @@ function OrderCard({
         <div>
           {isDineIn ? (
             <p className="text-lg font-bold text-ink">
-              {order.table_name_snapshot || "Table"}
+              {order.room_name_snapshot ? `${order.room_name_snapshot} · ` : ""}{order.table_name_snapshot || "Table"}
             </p>
           ) : (
             <p className="text-lg font-bold text-amber-600">PICKUP</p>
@@ -392,6 +393,7 @@ function OrderCard({
       <div className="mt-2 text-xs text-muted-foreground">
         {isDineIn ? "Dine-in" : "Pickup"}
         {order.walk_in_name ? ` · ${order.walk_in_name}` : ""}
+        {order.room_name_snapshot ? ` · ${order.room_name_snapshot}` : ""}
         {order.table_name_snapshot ? ` · ${order.table_name_snapshot}` : ""}
       </div>
 

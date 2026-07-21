@@ -7,6 +7,7 @@ export interface ReceiptProps {
   merchantLogo?: string | null;
   orderType: "dine_in" | "pickup" | "delivery";
   tableName?: string | null;
+  roomName?: string | null;
   cashierName: string;
   isWalkIn: boolean;
   walkInName?: string;
@@ -34,6 +35,7 @@ export function Receipt({
   merchantPhone,
   orderType,
   tableName,
+  roomName,
   cashierName,
   isWalkIn,
   walkInName,
@@ -85,7 +87,7 @@ export function Receipt({
         <p>Staff: {cashierName}</p>
         <p>
           Table:{" "}
-          {orderType === "dine_in" ? tableName || "—" : "Pickup"}{" "}
+          {orderType === "dine_in" ? `${roomName ? `${roomName} · ` : ""}${tableName || "—"}` : "Pickup"}{" "}
           ({orderType === "dine_in" ? "Dine-in" : "Pickup"})
         </p>
       </div>

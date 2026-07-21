@@ -27,6 +27,7 @@ interface BillData {
   order_type: string;
   payment_method: string | null;
   table_name: string | null;
+  room_name: string | null;
   cashier_name: string;
   is_walk_in: boolean;
   walk_in_name: string | null;
@@ -306,7 +307,7 @@ function BillPage() {
           <div className="mt-1 flex justify-between">
             <span>
               {bill.order_type === "dine_in" ? "Dine-in" : bill.order_type === "delivery" ? "Delivery" : "Pickup"}
-              {bill.table_name ? ` · ${bill.table_name}` : ""}
+              {bill.table_name ? ` · ${bill.room_name ? `${bill.room_name} · ` : ""}${bill.table_name}` : ""}
             </span>
             <span>Cashier: {bill.cashier_name}</span>
           </div>

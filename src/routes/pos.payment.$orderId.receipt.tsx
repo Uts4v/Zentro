@@ -138,6 +138,7 @@ function ReceiptPage() {
             merchantLogo={receipt.merchant_logo}
             orderType={receipt.order_type as "dine_in" | "pickup"}
             tableName={receipt.table_name}
+            roomName={receipt.room_name}
             cashierName={receipt.cashier_name}
             isWalkIn={receipt.is_walk_in}
             walkInName={receipt.walk_in_name ?? undefined}

@@ -15,6 +15,7 @@ CREATE OR REPLACE FUNCTION public.create_guest_order(
 DECLARE
   v_table_id uuid;
   v_table_name text;
+  v_room_name text;
   v_order_id uuid;
   v_total numeric;
   v_store_name text;
@@ -28,12 +29,13 @@ BEGIN
     RAISE EXCEPTION 'Table ordering is not enabled for this merchant';
   END IF;
 
-  -- Resolve table securely from token + merchant
-  SELECT id, name INTO v_table_id, v_table_name
-  FROM merchant_tables
-  WHERE public_token = p_table_token
-    AND merchant_id = p_merchant_id
-    AND is_active = true;
+  -- Resolve table and room securely from token + merchant
+  SELECT t.id, t.name, COALESCE(r.name, '') INTO v_table_id, v_table_name, v_room_name
+  FROM merchant_tables t
+  LEFT JOIN merchant_rooms r ON r.id = t.room_id
+  WHERE t.public_token = p_table_token
+    AND t.merchant_id = p_merchant_id
+    AND t.is_active = true;
 
   IF v_table_id IS NULL THEN
     RAISE EXCEPTION 'Invalid or inactive table';
@@ -49,12 +51,12 @@ BEGIN
   -- Create the order (guest = NULL customer_id, walk_in_name set)
   INSERT INTO orders (
     customer_id, merchant_id, status, order_type,
-    table_id, table_name_snapshot, notes, total_amount, points_earned,
+    table_id, table_name_snapshot, room_name_snapshot, notes, total_amount, points_earned,
     is_walk_in, walk_in_name
   )
   VALUES (
     NULL, p_merchant_id, 'pending', 'dine_in',
-    v_table_id, v_table_name, p_notes,
+    v_table_id, v_table_name, v_room_name, p_notes,
     v_total,
     0,
     true,
@@ -97,6 +99,7 @@ BEGIN
     'order_type', 'dine_in',
     'table_id', v_table_id,
     'table_name_snapshot', v_table_name,
+    'room_name_snapshot', v_room_name,
     'is_walk_in', true,
     'walk_in_name', NULLIF(p_guest_name, ''),
     'created_at', now(),

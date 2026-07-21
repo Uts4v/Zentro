@@ -384,7 +384,7 @@ function DailyReportPage() {
                     <div className="flex items-center justify-between mt-0.5">
                       <span className="text-muted-foreground">
                         {o.is_walk_in ? (o.walk_in_name || "Walk-in") : "Registered"}
-                        {o.order_type === "dine_in" && o.table_name_snapshot ? ` · ${o.table_name_snapshot}` : ""}
+                        {o.order_type === "dine_in" && o.table_name_snapshot ? ` · ${o.room_name_snapshot ? `${o.room_name_snapshot} · ` : ""}${o.table_name_snapshot}` : ""}
                         {o.order_type !== "dine_in" ? ` · ${o.order_type}` : ""}
                       </span>
                       <span className="text-muted-foreground">

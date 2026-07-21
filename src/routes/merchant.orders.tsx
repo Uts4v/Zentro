@@ -636,7 +636,7 @@ function HistoryRow({ order }: { order: Order }) {
             {order.order_type === "dine_in" && order.table_name_snapshot && (
               <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
                 <UtensilsCrossed className="h-2.5 w-2.5" />
-                {order.table_name_snapshot}
+                {order.room_name_snapshot ? `${order.room_name_snapshot} · ` : ""}{order.table_name_snapshot}
               </span>
             )}
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${STATUS_COLOR[order.status]}`}>
@@ -673,7 +673,7 @@ function HistoryRow({ order }: { order: Order }) {
               </span>
             )}
             {order.order_type === "dine_in" && order.table_name_snapshot && (
-              <span className="font-medium text-ink">Table: {order.table_name_snapshot}</span>
+              <span className="font-medium text-ink">Table: {order.room_name_snapshot ? `${order.room_name_snapshot} · ` : ""}{order.table_name_snapshot}</span>
             )}
           </div>
           <ul className="space-y-1">
@@ -754,7 +754,7 @@ function OrderCard({
           {order.order_type === "dine_in" && order.table_name_snapshot && (
             <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
               <UtensilsCrossed className="h-3 w-3" />
-              {order.table_name_snapshot}
+              {order.room_name_snapshot ? `${order.room_name_snapshot} · ` : ""}{order.table_name_snapshot}
             </div>
           )}
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">#{order.id.slice(0, 8)}</p>

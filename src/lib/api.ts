@@ -51,6 +51,7 @@ export interface Order {
   order_type?: "dine_in" | "pickup" | "delivery";
   table_id?: string | null;
   table_name_snapshot?: string;
+  room_name_snapshot?: string;
   is_walk_in?: boolean;
   walk_in_name?: string;
   processed_by?: string;

@@ -88,6 +88,7 @@ CREATE OR REPLACE FUNCTION create_dine_in_order(
 DECLARE
   v_table_id uuid;
   v_table_name text;
+  v_room_name text;
   v_order_id uuid;
   v_merchant_table_enabled boolean;
 BEGIN
@@ -98,12 +99,13 @@ BEGIN
     RAISE EXCEPTION 'Table ordering is not enabled for this merchant';
   END IF;
 
-  -- Resolve table securely from token + merchant
-  SELECT id, name INTO v_table_id, v_table_name
-  FROM merchant_tables
-  WHERE public_token = p_table_token
-    AND merchant_id = p_merchant_id
-    AND is_active = true;
+  -- Resolve table and room securely from token + merchant
+  SELECT t.id, t.name, COALESCE(r.name, '') INTO v_table_id, v_table_name, v_room_name
+  FROM merchant_tables t
+  LEFT JOIN merchant_rooms r ON r.id = t.room_id
+  WHERE t.public_token = p_table_token
+    AND t.merchant_id = p_merchant_id
+    AND t.is_active = true;
 
   IF v_table_id IS NULL THEN
     RAISE EXCEPTION 'Invalid or inactive table';
@@ -112,11 +114,11 @@ BEGIN
   -- Create the order
   INSERT INTO orders (
     customer_id, merchant_id, status, order_type,
-    table_id, table_name_snapshot, notes, total_amount, points_earned
+    table_id, table_name_snapshot, room_name_snapshot, notes, total_amount, points_earned
   )
   VALUES (
     p_customer_id, p_merchant_id, 'pending', 'dine_in',
-    v_table_id, v_table_name, p_notes,
+    v_table_id, v_table_name, v_room_name, p_notes,
     (SELECT COALESCE(SUM((item->>'price')::numeric * (item->>'quantity')::integer), 0) FROM jsonb_array_elements(p_items) item),
     (SELECT COALESCE(SUM((item->>'points_per_item')::integer * (item->>'quantity')::integer), 0) FROM jsonb_array_elements(p_items) item)
   )

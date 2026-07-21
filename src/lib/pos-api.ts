@@ -96,6 +96,7 @@ export interface CreditTransaction {
     walk_in_name: string | null;
     order_type: string;
     table_name_snapshot: string | null;
+    room_name_snapshot: string | null;
     created_at: string;
     items: {
       name: string;
@@ -150,6 +151,7 @@ export interface ReceiptData {
   merchant_logo: string | null;
   order_type: string;
   table_name: string | null;
+  room_name: string | null;
   cashier_name: string;
   is_walk_in: boolean;
   walk_in_name: string | null;
@@ -444,7 +446,7 @@ export const creditApi = {
     if (orderIds.length > 0) {
       const { data: orders } = await supabase
         .from("orders")
-        .select("id, receipt_number, total_amount, walk_in_name, order_type, table_name_snapshot, created_at")
+        .select("id, receipt_number, total_amount, walk_in_name, order_type, table_name_snapshot, room_name_snapshot, created_at")
         .in("id", orderIds);
       (orders ?? []).forEach((o: any) => { orderMap[o.id] = o; });
 
@@ -480,6 +482,7 @@ export const creditApi = {
             walk_in_name: orderMap[tx.order_id].walk_in_name,
             order_type: orderMap[tx.order_id].order_type,
             table_name_snapshot: orderMap[tx.order_id].table_name_snapshot,
+            room_name_snapshot: orderMap[tx.order_id].room_name_snapshot,
             created_at: orderMap[tx.order_id].created_at,
             items: orderMap[tx.order_id].items,
           }
@@ -568,13 +571,22 @@ export const posApi = {
 
     // Get table name snapshot if dine-in
     let tableNameSnapshot = "";
+    let roomNameSnapshot = "";
     if (payload.order_type === "dine_in" && payload.table_id) {
       const { data: table } = await supabase
         .from("merchant_tables")
-        .select("name")
+        .select("name, room_id")
         .eq("id", payload.table_id)
         .maybeSingle();
       tableNameSnapshot = table?.name ?? "";
+      if (table?.room_id) {
+        const { data: room } = await supabase
+          .from("merchant_rooms")
+          .select("name")
+          .eq("id", table.room_id)
+          .maybeSingle();
+        roomNameSnapshot = room?.name ?? "";
+      }
     }
 
     // Insert order
@@ -590,6 +602,7 @@ export const posApi = {
         order_type: payload.order_type,
         table_id: payload.table_id ?? null,
         table_name_snapshot: tableNameSnapshot,
+        room_name_snapshot: roomNameSnapshot,
         is_walk_in: true,
         walk_in_name: payload.walk_in_name ?? null,
         processed_by: userId,
@@ -705,6 +718,7 @@ export const posApi = {
       order_type: order.order_type,
       payment_method: order.payment_method ?? null,
       table_name: order.table_name_snapshot || order.table?.name || null,
+      room_name: order.room_name_snapshot || null,
       cashier_name: cashierName,
       is_walk_in: order.is_walk_in,
       walk_in_name: order.walk_in_name,
@@ -779,6 +793,7 @@ export const posApi = {
       merchant_logo: merchant?.logo_url ?? null,
       order_type: order.order_type,
       table_name: order.table_name_snapshot || order.table?.name || null,
+      room_name: order.room_name_snapshot || null,
       cashier_name: cashierName,
       is_walk_in: order.is_walk_in,
       walk_in_name: order.walk_in_name,
@@ -839,6 +854,7 @@ export interface DailyReportData {
     walk_in_name: string | null;
     order_type: string;
     table_name_snapshot: string | null;
+    room_name_snapshot: string | null;
     discount_amount: number | null;
     processed_by_name: string | null;
     created_at: string;
@@ -931,6 +947,7 @@ export interface FiscalYearReportData {
     order_type: string;
     customer_type: string;
     table_name: string | null;
+    room_name: string | null;
     staff: string | null;
   }[];
   items_sold: {
@@ -1059,7 +1076,7 @@ export const reportApi = {
         .order("opened_at", { ascending: true }),
       supabase
         .from("orders")
-        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, discount_amount, points_earned, processed_by, created_at, paid_at")
+        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, room_name_snapshot, discount_amount, points_earned, processed_by, created_at, paid_at")
         .eq("merchant_id", merchant.id)
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd)
@@ -1202,6 +1219,7 @@ export const reportApi = {
         walk_in_name: o.walk_in_name,
         order_type: o.order_type,
         table_name_snapshot: o.table_name_snapshot,
+        room_name_snapshot: o.room_name_snapshot,
         discount_amount: o.discount_amount != null ? Number(o.discount_amount) : null,
         processed_by_name: o.processed_by ? (nameMap[o.processed_by] ?? null) : null,
         created_at: o.created_at,
@@ -1276,7 +1294,7 @@ export const reportApi = {
     ] = await Promise.all([
       supabase
         .from("orders")
-        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, discount_amount, points_earned, processed_by, created_at, paid_at, cash_received, fonepay_amount")
+        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, room_name_snapshot, discount_amount, points_earned, processed_by, created_at, paid_at, cash_received, fonepay_amount")
         .eq("merchant_id", merchant.id)
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd)
@@ -1358,6 +1376,7 @@ export const reportApi = {
         order_type: o.order_type ?? "",
         customer_type: o.is_walk_in ? "Walk-in" : "Registered",
         table_name: o.table_name_snapshot ?? "",
+        room_name: o.room_name_snapshot ?? "",
         staff: o.processed_by ? (nameMap[o.processed_by] ?? "") : "",
       });
     });

@@ -103,12 +103,12 @@ function FiscalReportPage() {
     const rows: string[] = [];
 
     // ── Header row ──
-    rows.push("BillNo,Item,Quantity,Rate,SubTotal,OrderTotal,Discount,GrandTotal,PayMode,CashAmt,FonepayAmt,Date,OrderType,CustomerType,Table,Staff");
+    rows.push("BillNo,Item,Quantity,Rate,SubTotal,OrderTotal,Discount,GrandTotal,PayMode,CashAmt,FonepayAmt,Date,OrderType,CustomerType,Room,Table,Staff");
 
     // ── Detail rows (one per item) ──
     report.order_details.forEach((r) => {
       rows.push([
-        csvEscape(r.bill_no),
+        csvEscape(r.bill_no ?? ""),
         csvEscape(r.item_name),
         r.quantity,
         r.price,
@@ -122,8 +122,9 @@ function FiscalReportPage() {
         dateStr(r.date),
         r.order_type,
         r.customer_type,
-        csvEscape(r.table_name),
-        csvEscape(r.staff),
+        csvEscape(r.room_name ?? ""),
+        csvEscape(r.table_name ?? ""),
+        csvEscape(r.staff ?? ""),
       ].join(","));
     });
 

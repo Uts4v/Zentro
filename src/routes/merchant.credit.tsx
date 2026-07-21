@@ -412,7 +412,7 @@ function MerchantCredit() {
                         <div className="mb-1.5 flex items-center justify-between text-muted-foreground">
                           <span>
                             {tx.order.order_type === "dine_in"
-                              ? `Dine-in${tx.order.table_name_snapshot ? ` · ${tx.order.table_name_snapshot}` : ""}`
+                              ? `Dine-in${tx.order.table_name_snapshot ? ` · ${tx.order.room_name_snapshot ? `${tx.order.room_name_snapshot} · ` : ""}${tx.order.table_name_snapshot}` : ""}`
                               : tx.order.order_type === "delivery"
                                 ? "Delivery"
                                 : "Pickup"}
