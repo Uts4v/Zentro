@@ -1167,11 +1167,6 @@ export const rewardApi = {
     if (pErr || !profile) throw new Error("Profile not found");
     if (profile.points < reward.points_cost) throw new Error("Not enough points");
 
-    await (supabase.rpc as any)("deduct_points", {
-      target_user_id: userId,
-      amount: reward.points_cost,
-    }).throwOnError();
-
     const code = Math.random().toString(36).slice(2, 8).toUpperCase();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
@@ -1317,6 +1312,12 @@ export const loyaltyApi = {
       .eq("id", redemption.customer_id)
       .single();
     if (pErr || !profile) throw new Error("Customer profile not found");
+
+    // Deduct points only on merchant confirmation
+    await (supabase.rpc as any)("deduct_points", {
+      target_user_id: redemption.customer_id,
+      amount: redemption.points_spent,
+    }).throwOnError();
 
     const rewardName = (redemption.rewards as any)?.name ?? "Reward";
     const merchantId = merchantIdOverride ?? (redemption.rewards as any)?.merchant_id;
