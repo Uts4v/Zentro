@@ -16,7 +16,8 @@ import {
   UserPlus,
   Leaf,
 } from "lucide-react";
-import { publicTableApi, menuApi, guestOrderApi, type MerchantProfile, type MenuItem, type MerchantTable } from "@/lib/api";
+import { publicTableApi, menuApi, guestOrderApi, orderApi, type MerchantProfile, type MenuItem, type MerchantTable } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useStore, cartTotal, cartPoints, saveTableContext, loadTableContext, type TableOrderContext } from "@/lib/store";
 import { useState, useEffect, useMemo } from "react";
 
@@ -152,6 +153,7 @@ function TableQRPage() {
 
   const { merchantSlug, tableToken } = Route.useParams();
   const nav = useNavigate();
+  const { user, profile } = useAuth();
 
   const [merchant, setMerchant] = useState<Pick<MerchantProfile, "id" | "store_name" | "store_slug" | "logo_url"> | null>(null);
   const [table, setTable] = useState<Pick<MerchantTable, "id" | "name" | "table_number" | "public_token"> | null>(null);
@@ -258,7 +260,7 @@ function TableQRPage() {
     setTimeout(() => setAddedId(null), 800);
   }
 
-  async function handleGuestCheckout() {
+  async function handleCheckout() {
     if (placing || !merchant || !table) return;
     setPlacing(true);
     setPlaceError("");
@@ -272,18 +274,29 @@ function TableQRPage() {
             quantity: c.qty,
             name: mi.name,
             price: parseFloat(mi.price),
+            points_per_item: mi.points_per_item,
           };
         })
-        .filter(Boolean) as { menu_item_id: string; quantity: number; name: string; price: number }[];
+        .filter(Boolean) as { menu_item_id: string; quantity: number; name: string; price: number; points_per_item: number }[];
 
       if (orderItems.length === 0) throw new Error("Cart is empty");
 
-      const order = await guestOrderApi.create({
-        merchant_id: merchant.id,
-        table_token: tableToken,
-        items: orderItems,
-        guest_name: guestName.trim(),
-      });
+      let order;
+      if (user) {
+        order = await orderApi.create({
+          merchant_id: merchant.id,
+          items: orderItems,
+          order_type: "dine_in",
+          table_token: tableToken,
+        });
+      } else {
+        order = await guestOrderApi.create({
+          merchant_id: merchant.id,
+          table_token: tableToken,
+          items: orderItems,
+          guest_name: guestName.trim(),
+        });
+      }
 
       clearCart();
       setOrderPlaced(order.id);
@@ -387,36 +400,38 @@ function TableQRPage() {
         </div>
       </div>
 
-      {/* Loyalty promo banner */}
-      <Link
-        to="/auth/"
-        search={{ redirect: `/m/${merchantSlug}/table/${tableToken}` }}
-        className="mx-5 mt-4 block overflow-hidden rounded-3xl border border-amber-200/50 bg-gradient-to-br from-amber-50 via-orange-50/70 to-amber-100/60 transition-transform active:scale-[0.99]"
-      >
-        <div className="flex items-center gap-3 px-4 py-3.5">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-[0_6px_16px_-6px_rgba(217,119,6,0.6)]">
-            <Gift className="h-5 w-5" />
+      {/* Loyalty promo banner — only for guests */}
+      {!user && (
+        <Link
+          to="/auth/"
+          search={{ redirect: `/m/${merchantSlug}/table/${tableToken}` }}
+          className="mx-5 mt-4 block overflow-hidden rounded-3xl border border-amber-200/50 bg-gradient-to-br from-amber-50 via-orange-50/70 to-amber-100/60 transition-transform active:scale-[0.99]"
+        >
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-[0_6px_16px_-6px_rgba(217,119,6,0.6)]">
+              <Gift className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-amber-900">Earn loyalty points</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-amber-700/85">
+                Create a free account to earn points, unlock rewards, and get exclusive offers.
+              </p>
+            </div>
+            <UserPlus className="h-4 w-4 shrink-0 text-amber-600" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-amber-900">Earn loyalty points</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-amber-700/85">
-              Create a free account to earn points, unlock rewards, and get exclusive offers.
-            </p>
+          <div className="flex gap-2 border-t border-amber-200/50 bg-amber-100/40 px-4 py-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
+              <Sparkles className="h-2.5 w-2.5" /> Earn points
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
+              <Gift className="h-2.5 w-2.5" /> Free rewards
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
+              <Zap className="h-2.5 w-2.5" /> Exclusive deals
+            </span>
           </div>
-          <UserPlus className="h-4 w-4 shrink-0 text-amber-600" />
-        </div>
-        <div className="flex gap-2 border-t border-amber-200/50 bg-amber-100/40 px-4 py-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
-            <Sparkles className="h-2.5 w-2.5" /> Earn points
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
-            <Gift className="h-2.5 w-2.5" /> Free rewards
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-medium text-amber-800">
-            <Zap className="h-2.5 w-2.5" /> Exclusive deals
-          </span>
-        </div>
-      </Link>
+        </Link>
+      )}
 
       {/* Category tabs */}
       {categories.length > 2 && (
@@ -585,21 +600,26 @@ function TableQRPage() {
             </div>
             {points > 0 && (
               <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-700">
-                <Zap className="h-3 w-3" /> You'll earn {points} points on this order
+                <Zap className="h-3 w-3" />
+                {user
+                  ? `You'll earn ${points} points on this order`
+                  : `Sign in to earn ${points} points`}
               </p>
             )}
 
-            {/* Guest name input */}
-            <div className="mt-5">
-              <label className="text-xs font-medium text-muted-foreground">Your name (optional)</label>
-              <input
-                type="text"
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                placeholder="e.g. Ram"
-                className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-amber-400/40"
-              />
-            </div>
+            {/* Guest name input — only for guests */}
+            {!user && (
+              <div className="mt-5">
+                <label className="text-xs font-medium text-muted-foreground">Your name (optional)</label>
+                <input
+                  type="text"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="e.g. Ram"
+                  className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-amber-400/40"
+                />
+              </div>
+            )}
 
             {placeError && (
               <div className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">
@@ -608,7 +628,7 @@ function TableQRPage() {
             )}
 
             <button
-              onClick={handleGuestCheckout}
+              onClick={handleCheckout}
               disabled={placing}
               className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-sm font-medium text-primary-foreground shadow-[0_10px_24px_-10px_rgba(0,0,0,0.5)] transition-opacity hover:opacity-90 disabled:opacity-60"
             >
@@ -622,7 +642,11 @@ function TableQRPage() {
             </button>
 
             <p className="mt-3 text-center text-[11px] text-muted-foreground">
-              {guestName.trim() ? `Ordering as ${guestName.trim()}` : "Ordering as guest"}
+              {user
+                ? `Ordering as ${profile?.full_name || user.email}`
+                : guestName.trim()
+                  ? `Ordering as ${guestName.trim()}`
+                  : "Ordering as guest"}
               {table ? ` · ${table.name}` : ""}
             </p>
           </div>
