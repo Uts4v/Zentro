@@ -1578,7 +1578,7 @@ export const publicTableApi = {
     tableToken: string
   ): Promise<{
     merchant: Pick<MerchantProfile, "id" | "store_name" | "store_slug" | "logo_url">;
-    table: Pick<MerchantTable, "id" | "name" | "table_number" | "public_token">;
+    table: Pick<MerchantTable, "id" | "name" | "table_number" | "public_token"> & { room_name?: string };
   }> => {
     // 1. Find merchant by slug
     const { data: merchant, error: mErr } = await supabase
@@ -1591,15 +1591,17 @@ export const publicTableApi = {
     if (!merchant.is_open) throw new Error("Merchant is currently closed");
     if (!merchant.table_ordering_enabled) throw new Error("Table ordering is not enabled");
 
-    // 2. Find table by token + merchant
+    // 2. Find table by token + merchant, join room name
     const { data: table, error: tErr } = await supabase
       .from("merchant_tables")
-      .select("id, name, table_number, public_token")
+      .select("id, name, table_number, public_token, room:merchant_rooms(name)")
       .eq("public_token", tableToken)
       .eq("merchant_id", merchant.id)
       .eq("is_active", true)
       .maybeSingle();
     if (tErr || !table) throw new Error("Invalid or inactive table");
+
+    const roomName = (table.room as any)?.name ?? null;
 
     return {
       merchant: {
@@ -1608,7 +1610,13 @@ export const publicTableApi = {
         store_slug: merchant.store_slug,
         logo_url: merchant.logo_url,
       },
-      table,
+      table: {
+        id: table.id,
+        name: table.name,
+        table_number: table.table_number,
+        public_token: table.public_token,
+        room_name: roomName,
+      },
     };
   },
 };

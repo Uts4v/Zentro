@@ -156,7 +156,7 @@ function TableQRPage() {
   const { user, profile } = useAuth();
 
   const [merchant, setMerchant] = useState<Pick<MerchantProfile, "id" | "store_name" | "store_slug" | "logo_url"> | null>(null);
-  const [table, setTable] = useState<Pick<MerchantTable, "id" | "name" | "table_number" | "public_token"> | null>(null);
+  const [table, setTable] = useState<(Pick<MerchantTable, "id" | "name" | "table_number" | "public_token"> & { room_name?: string }) | null>(null);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -376,7 +376,7 @@ function TableQRPage() {
             <p className="truncate font-display text-xl tracking-tight">{merchant.store_name}</p>
             <div className="mt-0.5 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-white/75">
               <UtensilsCrossed className="h-3 w-3" />
-              <span>Dine-in · {table.name}</span>
+              <span>Dine-in{table.room_name ? ` · ${table.room_name}` : ""} · {table.name}</span>
             </div>
           </div>
         </div>
@@ -546,7 +546,7 @@ function TableQRPage() {
             </p>
             <div className="mt-5 rounded-2xl bg-mist px-4 py-3 text-xs text-muted-foreground">
               Order #{orderPlaced.slice(0, 8)}
-              {table && <> · {table.name}</>}
+              {table && <> · {table.room_name ? `${table.room_name} · ` : ""}{table.name}</>}
             </div>
             <button
               onClick={() => { setOrderPlaced(null); setCheckoutOpen(false); }}
@@ -647,7 +647,7 @@ function TableQRPage() {
                 : guestName.trim()
                   ? `Ordering as ${guestName.trim()}`
                   : "Ordering as guest"}
-              {table ? ` · ${table.name}` : ""}
+              {table ? ` · ${table.room_name ? `${table.room_name} · ` : ""}${table.name}` : ""}
             </p>
           </div>
         </div>
