@@ -8,7 +8,6 @@ import {
   Loader2,
   Plus,
   Clock,
-  Eye,
   CreditCard,
   Check,
   X,
@@ -62,7 +61,6 @@ function POSDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [search, setSearch] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -316,10 +314,6 @@ function POSDashboard() {
               key={order.id}
               order={order}
               isNew={newOrderIds.has(order.id)}
-              isExpanded={expandedId === order.id}
-              onToggleExpand={() =>
-                setExpandedId(expandedId === order.id ? null : order.id)
-              }
               onAdvance={handleAdvance}
               onCancel={handleCancel}
               confirmCancelId={confirmCancelId}
@@ -339,8 +333,6 @@ const CANCELLABLE_STATUSES = new Set(["pending", "confirmed", "preparing"]);
 function OrderCard({
   order,
   isNew,
-  isExpanded,
-  onToggleExpand,
   onAdvance,
   onCancel,
   confirmCancelId,
@@ -350,8 +342,6 @@ function OrderCard({
 }: {
   order: Order;
   isNew: boolean;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
   onAdvance: (order: Order) => void;
   onCancel: (order: Order) => void;
   confirmCancelId: string | null;
@@ -397,37 +387,35 @@ function OrderCard({
         {order.table_name_snapshot ? ` · ${order.table_name_snapshot}` : ""}
       </div>
 
-      {/* Summary */}
+      {/* Items list */}
+      <div className="mt-2.5 rounded-xl bg-background/60 px-3 py-2">
+        {order.order_items?.map((item, i) => (
+          <div key={i} className="flex items-center justify-between py-0.5 text-xs">
+            <span className="text-ink">
+              <span className="font-medium">{item.name}</span>
+              <span className="ml-1 text-muted-foreground">×{item.quantity}</span>
+            </span>
+            <span className="tabular-nums text-muted-foreground">
+              NPR {Number(item.subtotal).toLocaleString()}
+            </span>
+          </div>
+        ))}
+        {order.notes && (
+          <p className="mt-1.5 text-[11px] italic text-muted-foreground">
+            Note: {order.notes}
+          </p>
+        )}
+      </div>
+
+      {/* Total + time */}
       <div className="mt-2 flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">
-          {order.order_items?.length ?? 0} items · NPR{" "}
-          {Number(order.total_amount).toLocaleString()}
+        <span className="font-medium text-ink">
+          NPR {Number(order.total_amount).toLocaleString()}
         </span>
         <span className="text-muted-foreground">
           {formatTimeAgo(order.created_at)}
         </span>
       </div>
-
-      {/* Expanded details */}
-      {isExpanded && (
-        <div className="mt-3 border-t border-border pt-3">
-          {order.order_items?.map((item, i) => (
-            <div key={i} className="flex justify-between py-0.5 text-xs">
-              <span className="text-ink">
-                {item.name} ×{item.quantity}
-              </span>
-              <span className="text-muted-foreground">
-                NPR {Number(item.subtotal).toLocaleString()}
-              </span>
-            </div>
-          ))}
-          {order.notes && (
-            <p className="mt-2 text-xs italic text-muted-foreground">
-              Note: {order.notes}
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Cancel confirmation */}
       {confirmCancelId === order.id && (
@@ -494,13 +482,7 @@ function OrderCard({
           <Printer className="h-3 w-3" />
           Bill
         </Link>
-        <button
-          onClick={onToggleExpand}
-          className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-mist"
-        >
-          <Eye className="h-3 w-3" />
-          {isExpanded ? "Hide" : "Details"}
-        </button>
+
       </div>
     </div>
   );
