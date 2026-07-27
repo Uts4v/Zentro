@@ -103,15 +103,23 @@ function POSDashboard() {
           filter: `merchant_id=eq.${merchantId}`,
         },
         (payload) => {
-          const newOrder = payload.new as Order;
+          const raw = payload.new as any;
           if (
-            newOrder.status === "completed" ||
-            newOrder.status === "cancelled"
+            raw.status === "completed" ||
+            raw.status === "cancelled"
           ) {
-            setOrders((prev) => prev.filter((o) => o.id !== newOrder.id));
+            setOrders((prev) => prev.filter((o) => o.id !== raw.id));
           } else if (payload.eventType === "INSERT") {
-            setOrders((prev) => [newOrder, ...prev]);
-            setNewOrderIds((prev) => new Set(prev).add(newOrder.id));
+            // Realtime payload doesn't include order_items — fetch them
+            supabase
+              .from("order_items")
+              .select("*")
+              .eq("order_id", raw.id)
+              .then(({ data: items }) => {
+                const newOrder = { ...raw, order_items: items ?? [] } as Order;
+                setOrders((prev) => [newOrder, ...prev]);
+                setNewOrderIds((prev) => new Set(prev).add(newOrder.id));
+              });
             // Play notification sound
             try {
               const audio = new Audio(
@@ -122,7 +130,7 @@ function POSDashboard() {
             } catch {}
           } else {
             setOrders((prev) =>
-              prev.map((o) => (o.id === newOrder.id ? newOrder : o))
+              prev.map((o) => (o.id === raw.id ? { ...o, ...raw } : o))
             );
           }
         }
