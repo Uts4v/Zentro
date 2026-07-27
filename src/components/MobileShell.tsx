@@ -82,7 +82,7 @@ export function TopBar({ title, right }: { title?: string; right?: ReactNode }) 
   const greeting  = getGreeting();
 
   return (
-    <header className="relative z-40 px-5 pb-3 pt-5">
+    <header className="px-5 pb-3 pt-5">
       <div className="flex items-center justify-between">
         {/* Left: logo */}
         <Link to="/" className="font-display text-2xl tracking-tight text-ink">
