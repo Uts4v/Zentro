@@ -5,7 +5,7 @@ import {
   Search, Calendar, Trash2, ChevronDown, ChevronUp,
   UtensilsCrossed, ShoppingBag, Truck,
 } from "lucide-react";
-import { orderApi, type Order, type OrderStatus } from "@/lib/api";
+import { orderApi, menuApi, type Order, type OrderStatus } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/merchant/orders")({
@@ -149,6 +149,7 @@ function MerchantOrders() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [menuItemNames, setMenuItemNames] = useState<Record<string, string>>({});
 
   function playNotification() {
     try {
@@ -185,6 +186,17 @@ function MerchantOrders() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Fetch menu item names as fallback for empty order_item names
+  useEffect(() => {
+    const mId = orders[0]?.merchant_id;
+    if (!mId || Object.keys(menuItemNames).length > 0) return;
+    menuApi.forMerchant(mId).then((items) => {
+      const map: Record<string, string> = {};
+      items.forEach((mi) => { map[mi.id] = mi.name; });
+      setMenuItemNames(map);
+    }).catch(() => {});
+  }, [orders]);
 
   useEffect(() => {
     const channel = supabase
@@ -417,6 +429,7 @@ function MerchantOrders() {
               <OrderCard
                 key={o.id}
                 order={o}
+                menuItemNames={menuItemNames}
                 onAdvance={() => advance(o)}
                 advancing={advancing === o.id}
                 onCancel={() => setConfirmCancelId(o.id)}
@@ -435,6 +448,7 @@ function MerchantOrders() {
               <OrderCard
                 key={o.id}
                 order={o}
+                menuItemNames={menuItemNames}
                 onAdvance={() => advance(o)}
                 advancing={advancing === o.id}
                 onCancel={() => setConfirmCancelId(o.id)}
@@ -600,7 +614,7 @@ function MerchantOrders() {
                     {!isCollapsed && (
                       <div className="border-t border-border divide-y divide-border">
                         {groupOrders.map((o) => (
-                          <HistoryRow key={o.id} order={o} />
+                          <HistoryRow key={o.id} order={o} menuItemNames={menuItemNames} />
                         ))}
                       </div>
                     )}
@@ -617,7 +631,7 @@ function MerchantOrders() {
 
 // ── History row (compact) ─────────────────────────────────────────────────────
 
-function HistoryRow({ order }: { order: Order }) {
+function HistoryRow({ order, menuItemNames }: { order: Order; menuItemNames: Record<string, string> }) {
   const [expanded, setExpanded] = useState(false);
   const customerName = order.profiles?.full_name ?? "Customer";
   const date = new Date(order.created_at).toLocaleDateString("en-NP", {
@@ -679,7 +693,7 @@ function HistoryRow({ order }: { order: Order }) {
           <ul className="space-y-1">
             {(order.order_items ?? []).map((item) => (
               <li key={item.id} className="flex justify-between text-xs">
-                <span className="text-ink">{item.quantity}× {item.name}</span>
+            <span className="text-ink">{item.quantity}× {item.name || menuItemNames[item.menu_item_id] || "Item"}</span>
                 <span className="text-muted-foreground">NPR {Number(item.subtotal).toLocaleString()}</span>
               </li>
             ))}
@@ -727,10 +741,10 @@ function Empty({ text }: { text: string }) {
 }
 
 function OrderCard({
-  order, onAdvance, advancing, onCancel, cancelling,
+  order, menuItemNames, onAdvance, advancing, onCancel, cancelling,
   confirming, onConfirmCancel, onDismissCancel, isNew,
 }: {
-  order: Order; onAdvance?: () => void; advancing: boolean;
+  order: Order; menuItemNames: Record<string, string>; onAdvance?: () => void; advancing: boolean;
   onCancel?: () => void; cancelling?: boolean; confirming?: boolean;
   onConfirmCancel?: () => void; onDismissCancel?: () => void; isNew: boolean;
 }) {

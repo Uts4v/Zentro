@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { orderApi, type Order, type OrderStatus } from "@/lib/api";
+import { orderApi, menuApi, type Order, type OrderStatus, type MenuItem } from "@/lib/api";
 import {
   Loader2,
   Plus,
@@ -64,6 +64,7 @@ function POSDashboard() {
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [menuItemNames, setMenuItemNames] = useState<Record<string, string>>({});
 
   const merchantId = merchant?.id;
 
@@ -87,6 +88,16 @@ function POSDashboard() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // Fetch menu item names as fallback for empty order_item names
+  useEffect(() => {
+    if (!merchantId) return;
+    menuApi.forMerchant(merchantId).then((items) => {
+      const map: Record<string, string> = {};
+      items.forEach((mi) => { map[mi.id] = mi.name; });
+      setMenuItemNames(map);
+    }).catch(() => {});
+  }, [merchantId]);
 
   // Realtime subscription
   useEffect(() => {
@@ -322,6 +333,7 @@ function POSDashboard() {
               key={order.id}
               order={order}
               isNew={newOrderIds.has(order.id)}
+              menuItemNames={menuItemNames}
               onAdvance={handleAdvance}
               onCancel={handleCancel}
               confirmCancelId={confirmCancelId}
@@ -341,6 +353,7 @@ const CANCELLABLE_STATUSES = new Set(["pending", "confirmed", "preparing"]);
 function OrderCard({
   order,
   isNew,
+  menuItemNames,
   onAdvance,
   onCancel,
   confirmCancelId,
@@ -350,6 +363,7 @@ function OrderCard({
 }: {
   order: Order;
   isNew: boolean;
+  menuItemNames: Record<string, string>;
   onAdvance: (order: Order) => void;
   onCancel: (order: Order) => void;
   confirmCancelId: string | null;
@@ -400,7 +414,7 @@ function OrderCard({
         {order.order_items?.map((item, i) => (
           <div key={i} className="flex items-center justify-between py-0.5 text-xs">
             <span className="text-ink">
-              <span className="font-medium">{item.name}</span>
+              <span className="font-medium">{item.name || menuItemNames[item.menu_item_id] || "Item"}</span>
               <span className="ml-1 text-muted-foreground">×{item.quantity}</span>
             </span>
             <span className="tabular-nums text-muted-foreground">
