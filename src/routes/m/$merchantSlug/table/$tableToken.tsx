@@ -180,24 +180,38 @@ function TableQRPage() {
     setLoading(true);
     setError("");
     try {
-      const result = await publicTableApi.resolve(merchantSlug, tableToken);
-      setMerchant(result.merchant);
-      setTable(result.table);
+      const merchantData = await publicTableApi.resolveMerchant(merchantSlug);
+      setMerchant(merchantData);
 
-      setSelectedMerchant(result.merchant.id);
+      setSelectedMerchant(merchantData.id);
 
       const ctx: TableOrderContext = {
         merchantSlug,
         tableToken,
-        tableId: result.table.id,
-        tableName: result.table.name,
+        tableId: "",
+        tableName: "",
         scannedAt: Date.now(),
       };
       setTableContext(ctx);
       saveTableContext(merchantSlug, ctx);
 
-      const menuItems = await menuApi.forMerchant(result.merchant.id);
+      const [tableData, menuItems] = await Promise.all([
+        publicTableApi.resolveTable(merchantData.id, tableToken),
+        menuApi.forMerchant(merchantData.id),
+      ]);
+
+      setTable(tableData);
       setItems(menuItems);
+
+      const finalCtx: TableOrderContext = {
+        merchantSlug,
+        tableToken,
+        tableId: tableData.id,
+        tableName: tableData.name,
+        scannedAt: Date.now(),
+      };
+      setTableContext(finalCtx);
+      saveTableContext(merchantSlug, finalCtx);
     } catch (e: any) {
       setError(e.message || "Invalid QR code");
     } finally {

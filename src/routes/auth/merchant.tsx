@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-r
 import { useState, useEffect } from "react";
 import { useAuth, OAUTH_INTENT_KEY } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { authSchema, merchantSignupSchema, type AuthFormData, type MerchantSignupFormData } from "@/lib/validation";
+import { checkRateLimit, getRateLimitRemaining } from "@/lib/rate-limit";
 import { Loader2, Mail, Lock, User, Store, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/auth/merchant")({
@@ -69,8 +71,24 @@ function MerchantAuth() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    setBusy(true);
 
+    const rateKey = `merchant-auth:${mode}:${email}`;
+    if (!checkRateLimit(rateKey, mode === "signin" ? 10 : 5)) {
+      const remaining = getRateLimitRemaining(rateKey, mode === "signin" ? 10 : 5);
+      setError(`Too many attempts. Please try again later. (${remaining} remaining)`);
+      return;
+    }
+
+    const schema = mode === "signup" ? merchantSignupSchema : authSchema;
+    const parseResult = schema.safeParse(
+      mode === "signup" ? { email, password, name, storeName } : { email, password }
+    );
+    if (!parseResult.success) {
+      setError(parseResult.error.errors[0].message);
+      return;
+    }
+
+    setBusy(true);
     try {
       if (mode === "signup") {
         const { error: err } = await signUp(email, password, name, {
@@ -83,11 +101,9 @@ function MerchantAuth() {
         return;
       }
 
-      // Sign in
       const { error: err } = await signIn(email, password);
       if (err) { setError(err); return; }
 
-      // Verify this is actually a merchant account
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setError("Sign in failed. Please try again."); return; }
 
@@ -109,7 +125,6 @@ function MerchantAuth() {
         return;
       }
 
-      // Wait briefly for AuthProvider to finish loading merchantProfile
       await new Promise((r) => setTimeout(r, 300));
       navigate({ to: (redirect || "/merchant") as any, replace: true });
 

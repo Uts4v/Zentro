@@ -218,7 +218,7 @@ function MerchantTables() {
 
   function getTableUrl(table: MerchantTable) {
     const slug = profile?.store_slug ?? "";
-    return window.location.origin + "/m/" + slug + "/table/" + table.public_token;
+    return "https://zentro-xk6p.onrender.com" + "/m/" + slug + "/table/" + table.public_token;
   }
 
   async function showQR(table: MerchantTable) {
@@ -248,7 +248,11 @@ function MerchantTables() {
     if (!qrDataUrl || !qrTable || !profile) return;
     const pw = window.open("", "_blank");
     if (!pw) return;
-    pw.document.write(`<!DOCTYPE html><html><head><title>${qrTable.name} QR</title><style>body{font-family:system-ui,sans-serif;text-align:center;padding:40px}.card{max-width:320px;margin:0 auto;border:2px solid #e5e7eb;border-radius:16px;padding:32px 24px}.store-name{font-size:22px;font-weight:700;margin-bottom:4px}.table-name{font-size:18px;color:#6b7280;margin-bottom:16px;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:8px 0}.qr{width:220px;height:220px;margin:0 auto 16px}.qr img{width:100%;height:100%}.scan-text{font-size:13px;color:#9ca3af}.powered{font-size:10px;color:#d1d5db;margin-top:12px}@media print{body{padding:20px}}</style></head><body><div class="card"><div class="store-name">${profile.store_name}</div><div class="table-name">${qrTable.name}</div><div class="qr"><img src="${qrDataUrl}" alt="QR" /></div><div class="scan-text">Scan to view menu &amp; order</div><div class="powered">Powered by Zentro</div></div></body></html>`);
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const safeStoreName = esc(profile.store_name);
+    const safeTableName = esc(qrTable.name);
+    const safeDataUrl = esc(qrDataUrl);
+    pw.document.write(`<!DOCTYPE html><html><head><title>${safeTableName} QR</title><style>body{font-family:system-ui,sans-serif;text-align:center;padding:40px}.card{max-width:320px;margin:0 auto;border:2px solid #e5e7eb;border-radius:16px;padding:32px 24px}.store-name{font-size:22px;font-weight:700;margin-bottom:4px}.table-name{font-size:18px;color:#6b7280;margin-bottom:16px;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:8px 0}.qr{width:220px;height:220px;margin:0 auto 16px}.qr img{width:100%;height:100%}.scan-text{font-size:13px;color:#9ca3af}.powered{font-size:10px;color:#d1d5db;margin-top:12px}@media print{body{padding:20px}}</style></head><body><div class="card"><div class="store-name">${safeStoreName}</div><div class="table-name">${safeTableName}</div><div class="qr"><img src="${safeDataUrl}" alt="QR" /></div><div class="scan-text">Scan to view menu &amp; order</div><div class="powered">Powered by Zentro</div></div></body></html>`);
     pw.document.close();
     pw.print();
   }

@@ -1167,7 +1167,11 @@ export const rewardApi = {
     if (pErr || !profile) throw new Error("Profile not found");
     if (profile.points < reward.points_cost) throw new Error("Not enough points");
 
-    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const code = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .slice(0, 8)
+      .toUpperCase();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     const { data: redemption, error: redErr } = await supabase
@@ -1278,7 +1282,11 @@ export const loyaltyApi = {
   },
 
   generateRedemptionToken: async (rewardId: string): Promise<{ token: string; redemption_id: string }> => {
-    const token = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .slice(0, 8)
+      .toUpperCase();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from("redemptions")
@@ -1574,14 +1582,9 @@ function upper(s: string): string {
 }
 
 export const publicTableApi = {
-  resolve: async (
-    merchantSlug: string,
-    tableToken: string
-  ): Promise<{
-    merchant: Pick<MerchantProfile, "id" | "store_name" | "store_slug" | "logo_url">;
-    table: Pick<MerchantTable, "id" | "name" | "table_number" | "public_token"> & { room_name?: string };
-  }> => {
-    // 1. Find merchant by slug
+  resolveMerchant: async (
+    merchantSlug: string
+  ): Promise<Pick<MerchantProfile, "id" | "store_name" | "store_slug" | "logo_url">> => {
     const { data: merchant, error: mErr } = await supabase
       .from("merchant_profiles")
       .select("id, store_name, store_slug, logo_url, is_approved, is_open, table_ordering_enabled")
@@ -1591,34 +1594,40 @@ export const publicTableApi = {
     if (!merchant.is_approved) throw new Error("Merchant is not approved");
     if (!merchant.is_open) throw new Error("Merchant is currently closed");
     if (!merchant.table_ordering_enabled) throw new Error("Table ordering is not enabled");
+    return { id: merchant.id, store_name: merchant.store_name, store_slug: merchant.store_slug, logo_url: merchant.logo_url };
+  },
 
-    // 2. Find table by token + merchant, join room name
+  resolveTable: async (
+    merchantId: string,
+    tableToken: string
+  ): Promise<Pick<MerchantTable, "id" | "name" | "table_number" | "public_token"> & { room_name?: string }> => {
     const { data: table, error: tErr } = await supabase
       .from("merchant_tables")
       .select("id, name, table_number, public_token, room:merchant_rooms(name)")
       .eq("public_token", tableToken)
-      .eq("merchant_id", merchant.id)
+      .eq("merchant_id", merchantId)
       .eq("is_active", true)
       .maybeSingle();
     if (tErr || !table) throw new Error("Invalid or inactive table");
-
-    const roomName = (table.room as any)?.name ?? null;
-
     return {
-      merchant: {
-        id: merchant.id,
-        store_name: merchant.store_name,
-        store_slug: merchant.store_slug,
-        logo_url: merchant.logo_url,
-      },
-      table: {
-        id: table.id,
-        name: table.name,
-        table_number: table.table_number,
-        public_token: table.public_token,
-        room_name: roomName,
-      },
+      id: table.id,
+      name: table.name,
+      table_number: table.table_number,
+      public_token: table.public_token,
+      room_name: (table.room as any)?.name ?? null,
     };
+  },
+
+  resolve: async (
+    merchantSlug: string,
+    tableToken: string
+  ): Promise<{
+    merchant: Pick<MerchantProfile, "id" | "store_name" | "store_slug" | "logo_url">;
+    table: Pick<MerchantTable, "id" | "name" | "table_number" | "public_token"> & { room_name?: string };
+  }> => {
+    const merchant = await publicTableApi.resolveMerchant(merchantSlug);
+    const table = await publicTableApi.resolveTable(merchant.id, tableToken);
+    return { merchant, table };
   },
 };
 // ── Retail ────────────────────────────────────────────────────────────────────

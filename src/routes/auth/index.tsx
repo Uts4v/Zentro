@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-r
 import { useState, useEffect } from "react";
 import { useAuth, OAUTH_INTENT_KEY } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { authSchema, signupSchema, type AuthFormData, type SignupFormData } from "@/lib/validation";
+import { checkRateLimit, getRateLimitRemaining } from "@/lib/rate-limit";
 import { Loader2, Mail, Lock, User, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/auth/")({
@@ -87,8 +89,24 @@ function Auth() {
   e.preventDefault();
   setError(null);
   setSuccess(null);
-  setBusy(true);
 
+  const rateKey = `auth:${mode}:${email}`;
+  if (!checkRateLimit(rateKey, mode === "signin" ? 10 : 5)) {
+    const remaining = getRateLimitRemaining(rateKey, mode === "signin" ? 10 : 5);
+    setError(`Too many attempts. Please try again later. (${remaining} remaining)`);
+    return;
+  }
+
+  const schema = mode === "signup" ? signupSchema : authSchema;
+  const parseResult = schema.safeParse(
+    mode === "signup" ? { email, password, name } : { email, password }
+  );
+  if (!parseResult.success) {
+    setError(parseResult.error.errors[0].message);
+    return;
+  }
+
+  setBusy(true);
   try {
     if (mode === "signup") {
       const { error: err } = await signUp(email, password, name, { role: "customer" });
@@ -107,7 +125,6 @@ function Auth() {
       return;
     }
 
-    // Check if this is a merchant account and redirect accordingly
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       const { data: mp } = await supabase
@@ -127,7 +144,6 @@ function Auth() {
       }
     }
 
-    // Wait for AuthProvider to finish fetching profile
     await new Promise((r) => setTimeout(r, 600));
     navigate({ to: (redirect || "/") as any, replace: true });
 
