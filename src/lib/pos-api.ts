@@ -671,6 +671,24 @@ export const posApi = {
     return data;
   },
 
+  addItemsToOrder: async (
+    orderId: string,
+    items: { menu_item_id: string; name: string; price: number; quantity: number; points_per_item: number }[]
+  ): Promise<{ subtotal: number; discount_amount: number; total: number; items_added: number }> => {
+    const { data, error } = await supabase.rpc("add_items_to_order", {
+      p_order_id: orderId,
+      p_items: items.map((i) => ({
+        menu_item_id: i.menu_item_id,
+        name: i.name,
+        price: i.price,
+        quantity: i.quantity,
+        points_per_item: i.points_per_item,
+      })),
+    });
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
   getOrderForBill: async (orderId: string) => {
     const { data: order, error } = await supabase
       .from("orders")

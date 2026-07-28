@@ -57,6 +57,7 @@ import { Route as PosOrdersNewRouteImport } from './routes/pos.orders.new'
 import { Route as PosBillOrderIdRouteImport } from './routes/pos.bill.$orderId'
 import { Route as MerchantShiftReportShiftIdRouteImport } from './routes/merchant.shift-report.$shiftId'
 import { Route as PosPaymentOrderIdReceiptRouteImport } from './routes/pos.payment.$orderId.receipt'
+import { Route as PosOrdersOrderIdAddRouteImport } from './routes/pos.orders.$orderId.add'
 import { Route as MMerchantSlugTableTableTokenRouteImport } from './routes/m/$merchantSlug/table/$tableToken'
 
 const StoresRoute = StoresRouteImport.update({
@@ -301,6 +302,11 @@ const PosPaymentOrderIdReceiptRoute =
     path: '/receipt',
     getParentRoute: () => PosPaymentOrderIdRoute,
   } as any)
+const PosOrdersOrderIdAddRoute = PosOrdersOrderIdAddRouteImport.update({
+  id: '/orders/$orderId/add',
+  path: '/orders/$orderId/add',
+  getParentRoute: () => PosRoute,
+} as any)
 const MMerchantSlugTableTableTokenRoute =
   MMerchantSlugTableTableTokenRouteImport.update({
     id: '/m/$merchantSlug/table/$tableToken',
@@ -357,6 +363,7 @@ export interface FileRoutesByFullPath {
   '/pos/orders/new': typeof PosOrdersNewRoute
   '/pos/payment/$orderId': typeof PosPaymentOrderIdRouteWithChildren
   '/m/$merchantSlug/table/$tableToken': typeof MMerchantSlugTableTableTokenRoute
+  '/pos/orders/$orderId/add': typeof PosOrdersOrderIdAddRoute
   '/pos/payment/$orderId/receipt': typeof PosPaymentOrderIdReceiptRoute
 }
 export interface FileRoutesByTo {
@@ -405,6 +412,7 @@ export interface FileRoutesByTo {
   '/pos/orders/new': typeof PosOrdersNewRoute
   '/pos/payment/$orderId': typeof PosPaymentOrderIdRouteWithChildren
   '/m/$merchantSlug/table/$tableToken': typeof MMerchantSlugTableTableTokenRoute
+  '/pos/orders/$orderId/add': typeof PosOrdersOrderIdAddRoute
   '/pos/payment/$orderId/receipt': typeof PosPaymentOrderIdReceiptRoute
 }
 export interface FileRoutesById {
@@ -457,6 +465,7 @@ export interface FileRoutesById {
   '/pos/orders/new': typeof PosOrdersNewRoute
   '/pos/payment/$orderId': typeof PosPaymentOrderIdRouteWithChildren
   '/m/$merchantSlug/table/$tableToken': typeof MMerchantSlugTableTableTokenRoute
+  '/pos/orders/$orderId/add': typeof PosOrdersOrderIdAddRoute
   '/pos/payment/$orderId/receipt': typeof PosPaymentOrderIdReceiptRoute
 }
 export interface FileRouteTypes {
@@ -510,6 +519,7 @@ export interface FileRouteTypes {
     | '/pos/orders/new'
     | '/pos/payment/$orderId'
     | '/m/$merchantSlug/table/$tableToken'
+    | '/pos/orders/$orderId/add'
     | '/pos/payment/$orderId/receipt'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -558,6 +568,7 @@ export interface FileRouteTypes {
     | '/pos/orders/new'
     | '/pos/payment/$orderId'
     | '/m/$merchantSlug/table/$tableToken'
+    | '/pos/orders/$orderId/add'
     | '/pos/payment/$orderId/receipt'
   id:
     | '__root__'
@@ -609,6 +620,7 @@ export interface FileRouteTypes {
     | '/pos/orders/new'
     | '/pos/payment/$orderId'
     | '/m/$merchantSlug/table/$tableToken'
+    | '/pos/orders/$orderId/add'
     | '/pos/payment/$orderId/receipt'
   fileRoutesById: FileRoutesById
 }
@@ -976,6 +988,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PosPaymentOrderIdReceiptRouteImport
       parentRoute: typeof PosPaymentOrderIdRoute
     }
+    '/pos/orders/$orderId/add': {
+      id: '/pos/orders/$orderId/add'
+      path: '/orders/$orderId/add'
+      fullPath: '/pos/orders/$orderId/add'
+      preLoaderRoute: typeof PosOrdersOrderIdAddRouteImport
+      parentRoute: typeof PosRoute
+    }
     '/m/$merchantSlug/table/$tableToken': {
       id: '/m/$merchantSlug/table/$tableToken'
       path: '/m/$merchantSlug/table/$tableToken'
@@ -1060,6 +1079,7 @@ interface PosRouteChildren {
   PosBillOrderIdRoute: typeof PosBillOrderIdRoute
   PosOrdersNewRoute: typeof PosOrdersNewRoute
   PosPaymentOrderIdRoute: typeof PosPaymentOrderIdRouteWithChildren
+  PosOrdersOrderIdAddRoute: typeof PosOrdersOrderIdAddRoute
 }
 
 const PosRouteChildren: PosRouteChildren = {
@@ -1069,6 +1089,7 @@ const PosRouteChildren: PosRouteChildren = {
   PosBillOrderIdRoute: PosBillOrderIdRoute,
   PosOrdersNewRoute: PosOrdersNewRoute,
   PosPaymentOrderIdRoute: PosPaymentOrderIdRouteWithChildren,
+  PosOrdersOrderIdAddRoute: PosOrdersOrderIdAddRoute,
 }
 
 const PosRouteWithChildren = PosRoute._addFileChildren(PosRouteChildren)

@@ -17,6 +17,7 @@ import {
   CreditCardIcon,
   Printer,
   AlertTriangle,
+  PlusCircle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/pos/")({
@@ -128,7 +129,10 @@ function POSDashboard() {
               .eq("order_id", raw.id)
               .then(({ data: items }) => {
                 const newOrder = { ...raw, order_items: items ?? [] } as Order;
-                setOrders((prev) => [newOrder, ...prev]);
+                setOrders((prev) => {
+                  if (prev.some((o) => o.id === newOrder.id)) return prev;
+                  return [newOrder, ...prev];
+                });
                 setNewOrderIds((prev) => new Set(prev).add(newOrder.id));
               });
             // Play notification sound
@@ -486,6 +490,15 @@ function OrderCard({
           >
             <CreditCard className="h-3 w-3" />
             Pay Now
+          </Link>
+        )}
+        {order.payment_status !== "paid" && order.status !== "completed" && order.status !== "cancelled" && (
+          <Link
+            to={`/pos/orders/${order.id}/add` as any}
+            className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-mist"
+          >
+            <PlusCircle className="h-3 w-3" />
+            Add Items
           </Link>
         )}
         {CANCELLABLE_STATUSES.has(order.status) && confirmCancelId !== order.id && (
