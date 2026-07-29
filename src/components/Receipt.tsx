@@ -26,6 +26,9 @@ export interface ReceiptProps {
   discountType?: "amount" | "percent" | null;
   discountValue?: number | null;
   discountAmount?: number | null;
+  creditDiscountType?: "amount" | "percent" | null;
+  creditDiscountValue?: number | null;
+  creditDiscountAmount?: number | null;
 }
 
 export function Receipt({
@@ -54,6 +57,9 @@ export function Receipt({
   discountType,
   discountValue,
   discountAmount,
+  creditDiscountType,
+  creditDiscountValue,
+  creditDiscountAmount,
 }: ReceiptProps) {
   const dateStr = new Date(paidAt).toLocaleDateString("en-CA");
   const timeStr = new Date(paidAt).toLocaleTimeString("en-US", {
@@ -122,6 +128,14 @@ export function Receipt({
             <span>-NPR {discountAmount.toLocaleString()}</span>
           </div>
         )}
+        {creditDiscountAmount != null && creditDiscountAmount > 0 && (
+          <div className="flex justify-between text-blue-700">
+            <span>
+              CREDIT DISCOUNT{creditDiscountType === "percent" && creditDiscountValue ? ` (${creditDiscountValue}%)` : ""}:
+            </span>
+            <span>-NPR {creditDiscountAmount.toLocaleString()}</span>
+          </div>
+        )}
         <div className="flex justify-between text-xs font-bold">
           <span>TOTAL:</span>
           <span>NPR {total.toLocaleString()}</span>
@@ -174,7 +188,7 @@ export function Receipt({
           <>
             <div className="flex justify-between">
               <span>CHARGED TO CREDIT:</span>
-              <span>NPR {total.toLocaleString()}</span>
+              <span>NPR {(creditDiscountAmount ? total - creditDiscountAmount : total).toLocaleString()}</span>
             </div>
             {creditAccountName && (
               <p>Account: {creditAccountName}</p>

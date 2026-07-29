@@ -133,6 +133,7 @@ export interface PaymentResult {
   fonepay_amount: number;
   change: number;
   credit_new_balance: number | null;
+  credit_discount_amount: number;
 }
 
 export interface ReceiptData {
@@ -163,6 +164,9 @@ export interface ReceiptData {
   discount_type: "amount" | "percent" | null;
   discount_value: number | null;
   discount_amount: number | null;
+  credit_discount_type: "amount" | "percent" | null;
+  credit_discount_value: number | null;
+  credit_discount_amount: number | null;
 }
 
 // ── Cached identity helpers (fixes N+1 performance issue) ───────────────────
@@ -637,6 +641,9 @@ export const posApi = {
     cashReceived?: number;
     fonepayAmount?: number;
     creditAccountId?: string;
+    creditDiscountType?: "amount" | "percent" | null;
+    creditDiscountValue?: number | null;
+    creditDiscountAmount?: number;
   }): Promise<PaymentResult> => {
     const userId = await getCurrentUserId();
     const { data, error } = await supabase.rpc("process_payment", {
@@ -646,6 +653,9 @@ export const posApi = {
       p_fonepay_amount: payload.fonepayAmount ?? 0,
       p_credit_account_id: payload.creditAccountId ?? null,
       p_staff_user_id: userId,
+      p_credit_discount_type: payload.creditDiscountType ?? null,
+      p_credit_discount_value: payload.creditDiscountValue ?? null,
+      p_credit_discount_amount: payload.creditDiscountAmount ?? 0,
     });
     if (error) throw new Error(error.message);
     return data as PaymentResult;
@@ -742,10 +752,13 @@ export const posApi = {
       walk_in_name: order.walk_in_name,
       customer_name: customerName,
       items,
-      subtotal: items.reduce((s, i) => s + i.subtotal, 0),
+      subtotal: items.reduce((s: number, i: any) => s + i.subtotal, 0),
       discount_type: order.discount_type ?? null,
       discount_value: order.discount_value ?? null,
       discount_amount: order.discount_amount ? Number(order.discount_amount) : 0,
+      credit_discount_type: order.credit_discount_type ?? null,
+      credit_discount_value: order.credit_discount_value ?? null,
+      credit_discount_amount: order.credit_discount_amount ? Number(order.credit_discount_amount) : 0,
       total: Number(order.total_amount),
       status: order.status,
       payment_status: order.payment_status,
@@ -823,6 +836,9 @@ export const posApi = {
       discount_type: order.discount_type ?? null,
       discount_value: order.discount_value ?? null,
       discount_amount: order.discount_amount ?? null,
+      credit_discount_type: order.credit_discount_type ?? null,
+      credit_discount_value: order.credit_discount_value ?? null,
+      credit_discount_amount: order.credit_discount_amount ?? null,
     };
   },
 };
@@ -874,6 +890,7 @@ export interface DailyReportData {
     table_name_snapshot: string | null;
     room_name_snapshot: string | null;
     discount_amount: number | null;
+    credit_discount_amount: number | null;
     processed_by_name: string | null;
     created_at: string;
   }[];
@@ -913,6 +930,7 @@ export interface DailyReportData {
     credit_sales: number;
     split_sales: number;
     total_discount: number;
+    total_credit_discount: number;
     opening_cash: number;
     closing_cash: number;
     cash_difference: number;
@@ -986,6 +1004,7 @@ export interface FiscalYearReportData {
     credit_sales: number;
     split_sales: number;
     total_discount: number;
+    total_credit_discount: number;
     total_points_earned: number;
     walk_in_orders: number;
     walk_in_sales: number;
@@ -1029,7 +1048,7 @@ export const reportApi = {
     // Get orders paid during this shift
     const { data: orders } = await supabase
       .from("orders")
-      .select("id, receipt_number, total_amount, payment_method, payment_status, walk_in_name, created_at, paid_at, discount_amount")
+      .select("id, receipt_number, total_amount, payment_method, payment_status, walk_in_name, created_at, paid_at, discount_amount, credit_discount_amount")
       .eq("merchant_id", merchant.id)
       .eq("payment_status", "paid")
       .gte("paid_at", shift.opened_at)
@@ -1094,7 +1113,7 @@ export const reportApi = {
         .order("opened_at", { ascending: true }),
       supabase
         .from("orders")
-        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, room_name_snapshot, discount_amount, points_earned, processed_by, created_at, paid_at")
+        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, room_name_snapshot, discount_amount, credit_discount_amount, points_earned, processed_by, created_at, paid_at")
         .eq("merchant_id", merchant.id)
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd)
@@ -1170,6 +1189,7 @@ export const reportApi = {
     const creditSales = paidOrders.filter((o: any) => o.payment_method === "credit").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
     const splitSales = paidOrders.filter((o: any) => o.payment_method === "split").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
     const totalDiscount = paidOrders.reduce((s: number, o: any) => s + Number(o.discount_amount ?? 0), 0);
+    const totalCreditDiscount = paidOrders.reduce((s: number, o: any) => s + Number(o.credit_discount_amount ?? 0), 0);
     const totalPointsEarned = paidOrders.reduce((s: number, o: any) => s + Number(o.points_earned ?? 0), 0);
 
     const walkInOrders = paidOrders.filter((o: any) => o.is_walk_in);
@@ -1239,6 +1259,7 @@ export const reportApi = {
         table_name_snapshot: o.table_name_snapshot,
         room_name_snapshot: o.room_name_snapshot,
         discount_amount: o.discount_amount != null ? Number(o.discount_amount) : null,
+        credit_discount_amount: o.credit_discount_amount != null ? Number(o.credit_discount_amount) : null,
         processed_by_name: o.processed_by ? (nameMap[o.processed_by] ?? null) : null,
         created_at: o.created_at,
       })),
@@ -1270,6 +1291,7 @@ export const reportApi = {
         credit_sales: creditSales,
         split_sales: splitSales,
         total_discount: totalDiscount,
+        total_credit_discount: totalCreditDiscount,
         opening_cash: openingCash,
         closing_cash: closingCash,
         cash_difference: cashDiff,
@@ -1312,7 +1334,7 @@ export const reportApi = {
     ] = await Promise.all([
       supabase
         .from("orders")
-        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, room_name_snapshot, discount_amount, points_earned, processed_by, created_at, paid_at, cash_received, fonepay_amount")
+        .select("id, receipt_number, total_amount, payment_method, payment_status, status, is_walk_in, walk_in_name, order_type, table_name_snapshot, room_name_snapshot, discount_amount, credit_discount_amount, points_earned, processed_by, created_at, paid_at, cash_received, fonepay_amount")
         .eq("merchant_id", merchant.id)
         .gte("created_at", dayStart)
         .lte("created_at", dayEnd)
@@ -1410,6 +1432,7 @@ export const reportApi = {
     const creditSales = paidOrders.filter((o: any) => o.payment_method === "credit").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
     const splitSales = paidOrders.filter((o: any) => o.payment_method === "split").reduce((s: number, o: any) => s + Number(o.total_amount), 0);
     const totalDiscount = paidOrders.reduce((s: number, o: any) => s + Number(o.discount_amount ?? 0), 0);
+    const totalCreditDiscount = paidOrders.reduce((s: number, o: any) => s + Number(o.credit_discount_amount ?? 0), 0);
     const totalPointsEarned = paidOrders.reduce((s: number, o: any) => s + Number(o.points_earned ?? 0), 0);
 
     const walkInOrders = paidOrders.filter((o: any) => o.is_walk_in);
@@ -1479,6 +1502,7 @@ export const reportApi = {
         credit_sales: creditSales,
         split_sales: splitSales,
         total_discount: totalDiscount,
+        total_credit_discount: totalCreditDiscount,
         total_points_earned: totalPointsEarned,
         walk_in_orders: walkInOrders.length,
         walk_in_sales: walkInOrders.reduce((s: number, o: any) => s + Number(o.total_amount), 0),

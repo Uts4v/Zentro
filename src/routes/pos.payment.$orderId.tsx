@@ -38,6 +38,10 @@ function PaymentPage() {
   const [discountValue, setDiscountValue] = useState("");
   const [savingDiscount, setSavingDiscount] = useState(false);
 
+  const [showCreditDiscount, setShowCreditDiscount] = useState(false);
+  const [creditDiscountType, setCreditDiscountType] = useState<"amount" | "percent">("amount");
+  const [creditDiscountValue, setCreditDiscountValue] = useState("");
+
   // Receipt state — shown inline after payment
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
@@ -48,6 +52,24 @@ function PaymentPage() {
     ? order.order_items.reduce((s, i) => s + Number(i.subtotal), 0)
     : total;
   const discountAmt = order?.discount_amount ? Number(order.discount_amount) : 0;
+
+  const creditDiscountAmt = useMemo(() => {
+    if (!showCreditDiscount || method !== "credit" && method !== "split") return 0;
+    const val = parseFloat(creditDiscountValue) || 0;
+    if (!val) return 0;
+    if (creditDiscountType === "amount") return Math.min(val, total);
+    return Math.round(total * Math.min(val, 100) / 100);
+  }, [creditDiscountType, creditDiscountValue, total, showCreditDiscount, method]);
+
+  const effectiveCreditCharge = useMemo(() => {
+    if (method === "credit") return total - creditDiscountAmt;
+    if (method === "split") {
+      const covered = (parseFloat(splitCash) || 0) + (parseFloat(splitFonepay) || 0);
+      const remaining = Math.max(0, total - covered);
+      return Math.max(0, remaining - creditDiscountAmt);
+    }
+    return 0;
+  }, [total, creditDiscountAmt, method, splitCash, splitFonepay]);
 
   // Fetch order
   useEffect(() => {
@@ -80,10 +102,13 @@ function PaymentPage() {
     }
   }
 
-  // Fetch credit accounts
+  // Fetch credit accounts and reset credit discount when method changes
   useEffect(() => {
     if (method === "credit" || method === "split") {
       creditApi.list().then(setCreditAccounts).catch(() => {});
+    } else {
+      setShowCreditDiscount(false);
+      setCreditDiscountValue("");
     }
   }, [method]);
 
@@ -101,7 +126,7 @@ function PaymentPage() {
 
   const selectedCredit = creditAccounts.find((c) => c.id === selectedCreditId);
   const creditOverLimit =
-    selectedCredit && selectedCredit.balance + total > selectedCredit.credit_limit;
+    selectedCredit && selectedCredit.balance + effectiveCreditCharge > selectedCredit.credit_limit;
 
   const filteredCreditAccounts = useMemo(() => {
     if (!creditSearch) return creditAccounts;
@@ -170,6 +195,9 @@ function PaymentPage() {
         cashReceived: cashR,
         fonepayAmount: foneR,
         creditAccountId: creditId,
+        creditDiscountType: creditDiscountAmt > 0 ? creditDiscountType : null,
+        creditDiscountValue: creditDiscountAmt > 0 ? (parseFloat(creditDiscountValue) || 0) : null,
+        creditDiscountAmount: creditDiscountAmt,
       });
 
       // Mark order as paid locally
@@ -298,6 +326,9 @@ function PaymentPage() {
                 discountType={receipt.discount_type}
                 discountValue={receipt.discount_value}
                 discountAmount={receipt.discount_amount}
+                creditDiscountType={receipt.credit_discount_type}
+                creditDiscountValue={receipt.credit_discount_value}
+                creditDiscountAmount={receipt.credit_discount_amount}
               />
             </div>
           </div>
@@ -635,6 +666,71 @@ function PaymentPage() {
                 </span>
               </div>
             )}
+            {selectedCredit && (
+              <div className="border-t border-border pt-3">
+                {!showCreditDiscount ? (
+                  <button
+                    onClick={() => setShowCreditDiscount(true)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-ink transition-colors"
+                  >
+                    + Credit Discount
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Credit Discount
+                      </p>
+                      <button
+                        onClick={() => {
+                          setShowCreditDiscount(false);
+                          setCreditDiscountValue("");
+                        }}
+                        className="text-xs text-muted-foreground hover:text-ink"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setCreditDiscountType("amount")}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                            creditDiscountType === "amount"
+                              ? "bg-ink text-primary-foreground"
+                              : "border border-border text-muted-foreground hover:bg-mist"
+                          }`}
+                        >
+                          NPR
+                        </button>
+                        <button
+                          onClick={() => setCreditDiscountType("percent")}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                            creditDiscountType === "percent"
+                              ? "bg-ink text-primary-foreground"
+                              : "border border-border text-muted-foreground hover:bg-mist"
+                          }`}
+                        >
+                          %
+                        </button>
+                      </div>
+                      <input
+                        type="number"
+                        value={creditDiscountValue}
+                        onChange={(e) => setCreditDiscountValue(e.target.value)}
+                        placeholder={creditDiscountType === "amount" ? "NPR" : "%"}
+                        className="flex-1 h-8 rounded-lg bg-mist px-3 text-xs text-ink outline-none focus:ring-2 focus:ring-ember/40"
+                      />
+                    </div>
+                    {creditDiscountAmt > 0 && (
+                      <p className="text-xs text-blue-600">
+                        Discount: -NPR {creditDiscountAmt.toLocaleString()} · Credit charge: NPR {effectiveCreditCharge.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -686,10 +782,10 @@ function PaymentPage() {
                   Current balance: NPR {selectedCredit.balance.toLocaleString()}{" "}
                   owed
                 </p>
-                <p>This charge: NPR {total.toLocaleString()}</p>
+                <p>This charge: NPR {effectiveCreditCharge.toLocaleString()}</p>
                 <p>
                   New balance: NPR{" "}
-                  {(selectedCredit.balance + total).toLocaleString()}
+                  {(selectedCredit.balance + effectiveCreditCharge).toLocaleString()}
                 </p>
                 <p>Limit: NPR {selectedCredit.credit_limit.toLocaleString()}</p>
                 <p>
@@ -697,7 +793,7 @@ function PaymentPage() {
                   {(
                     selectedCredit.credit_limit -
                     selectedCredit.balance -
-                    total
+                    effectiveCreditCharge
                   ).toLocaleString()}
                 </p>
                 {creditOverLimit && (
@@ -705,6 +801,72 @@ function PaymentPage() {
                     This charge exceeds {selectedCredit.full_name}'s credit limit
                     of NPR {selectedCredit.credit_limit.toLocaleString()}
                   </p>
+                )}
+              </div>
+            )}
+            {selectedCredit && (
+              <div>
+                {!showCreditDiscount && (
+                  <button
+                    onClick={() => setShowCreditDiscount(true)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-ink transition-colors"
+                  >
+                    + Credit Discount
+                  </button>
+                )}
+                {showCreditDiscount && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Credit Discount
+                      </p>
+                      <button
+                        onClick={() => {
+                          setShowCreditDiscount(false);
+                          setCreditDiscountValue("");
+                        }}
+                        className="text-xs text-muted-foreground hover:text-ink"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setCreditDiscountType("amount")}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                            creditDiscountType === "amount"
+                              ? "bg-ink text-primary-foreground"
+                              : "border border-border text-muted-foreground hover:bg-mist"
+                          }`}
+                        >
+                          NPR
+                        </button>
+                        <button
+                          onClick={() => setCreditDiscountType("percent")}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                            creditDiscountType === "percent"
+                              ? "bg-ink text-primary-foreground"
+                              : "border border-border text-muted-foreground hover:bg-mist"
+                          }`}
+                        >
+                          %
+                        </button>
+                      </div>
+                      <input
+                        type="number"
+                        value={creditDiscountValue}
+                        onChange={(e) => setCreditDiscountValue(e.target.value)}
+                        placeholder={creditDiscountType === "amount" ? "NPR" : "%"}
+                        className="flex-1 h-8 rounded-lg bg-mist px-3 text-xs text-ink outline-none focus:ring-2 focus:ring-ember/40"
+                      />
+                    </div>
+                    {creditDiscountAmt > 0 && (
+                      <p className="text-xs text-blue-600">
+                        Discount: -NPR {creditDiscountAmt.toLocaleString()} · Charged: NPR {effectiveCreditCharge.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
