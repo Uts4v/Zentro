@@ -51,6 +51,9 @@ function CreditPage() {
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState<"cash" | "fonepay">("cash");
   const [payNotes, setPayNotes] = useState("");
+  const [showPayDiscount, setShowPayDiscount] = useState(false);
+  const [payDiscountType, setPayDiscountType] = useState<"amount" | "percent">("amount");
+  const [payDiscountValue, setPayDiscountValue] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +124,16 @@ function CreditPage() {
     }
   }
 
+  const payDiscountAmt = useMemo(() => {
+    if (!showPayDiscount) return 0;
+    const val = parseFloat(payDiscountValue) || 0;
+    if (!val) return 0;
+    const balance = selectedAccount?.balance ?? 0;
+    const amt = parseFloat(payAmount) || 0;
+    if (payDiscountType === "amount") return Math.min(val, balance - amt);
+    return Math.round((balance - amt) * Math.min(val, 100) / 100);
+  }, [payDiscountType, payDiscountValue, showPayDiscount, selectedAccount, payAmount]);
+
   // Record payment
   async function handleRecordPayment() {
     if (!selectedAccount) return;
@@ -129,13 +142,19 @@ function CreditPage() {
       setError("Amount must be positive");
       return;
     }
+    const discAmt = payDiscountAmt;
+    if (discAmt > 0 && amt + discAmt > selectedAccount.balance) {
+      setError("Payment + discount cannot exceed balance");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
       const newBalance = await creditApi.recordPayment(
         selectedAccount.id,
         amt,
-        payNotes || undefined
+        payNotes || undefined,
+        discAmt > 0 ? discAmt : undefined
       );
       setSelectedAccount({ ...selectedAccount, balance: newBalance });
       setAccounts((prev) =>
@@ -146,6 +165,8 @@ function CreditPage() {
       setShowPayModal(false);
       setPayAmount("");
       setPayNotes("");
+      setShowPayDiscount(false);
+      setPayDiscountValue("");
       // Refresh transactions
       const txs = await creditApi.getTransactions(selectedAccount.id);
       setTransactions(txs);
@@ -405,6 +426,71 @@ function CreditPage() {
                   className="mt-1.5 h-12 w-full rounded-xl bg-mist px-4 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
                 />
               </div>
+              {selectedAccount.balance > 0 && (
+                <div>
+                  {!showPayDiscount ? (
+                    <button
+                      onClick={() => setShowPayDiscount(true)}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-ink transition-colors"
+                    >
+                      + Credit Discount
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                          Credit Discount
+                        </p>
+                        <button
+                          onClick={() => {
+                            setShowPayDiscount(false);
+                            setPayDiscountValue("");
+                          }}
+                          className="text-xs text-muted-foreground hover:text-ink"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => setPayDiscountType("amount")}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                              payDiscountType === "amount"
+                                ? "bg-ink text-primary-foreground"
+                                : "border border-border text-muted-foreground hover:bg-mist"
+                            }`}
+                          >
+                            NPR
+                          </button>
+                          <button
+                            onClick={() => setPayDiscountType("percent")}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                              payDiscountType === "percent"
+                                ? "bg-ink text-primary-foreground"
+                                : "border border-border text-muted-foreground hover:bg-mist"
+                            }`}
+                          >
+                            %
+                          </button>
+                        </div>
+                        <input
+                          type="number"
+                          value={payDiscountValue}
+                          onChange={(e) => setPayDiscountValue(e.target.value)}
+                          placeholder={payDiscountType === "amount" ? "NPR" : "%"}
+                          className="flex-1 h-8 rounded-lg bg-mist px-3 text-xs text-ink outline-none focus:ring-2 focus:ring-ember/40"
+                        />
+                      </div>
+                      {payDiscountAmt > 0 && (
+                        <p className="text-xs text-blue-600">
+                          Discount: -NPR {payDiscountAmt.toLocaleString()} · Balance reduction: NPR {(parseFloat(payAmount) || 0) + payDiscountAmt}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               {payAmount && (
                 <div>
                   <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -414,9 +500,14 @@ function CreditPage() {
                     NPR{" "}
                     {Math.max(
                       0,
-                      selectedAccount.balance - (parseFloat(payAmount) || 0)
+                      selectedAccount.balance - (parseFloat(payAmount) || 0) - payDiscountAmt
                     ).toLocaleString()}
                   </p>
+                  {payDiscountAmt > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      NPR {payDiscountAmt.toLocaleString()} discount applied
+                    </p>
+                  )}
                 </div>
               )}
               <div className="flex gap-2 pt-2">

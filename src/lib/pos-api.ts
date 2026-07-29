@@ -497,7 +497,8 @@ export const creditApi = {
   recordPayment: async (
     creditAccountId: string,
     amount: number,
-    notes?: string
+    notes?: string,
+    creditDiscountAmount?: number
   ): Promise<number> => {
     const userId = await getCurrentUserId();
     const merchant = await getMerchantProfileCached();
@@ -511,7 +512,18 @@ export const creditApi = {
 
     if (!account) throw new Error("Credit account not found");
 
-    const newBalance = Math.max(0, account.balance - amount);
+    const discount = Math.max(0, Math.min(creditDiscountAmount ?? 0, account.balance - amount));
+    const totalReduction = amount + discount;
+    const newBalance = Math.max(0, account.balance - totalReduction);
+
+    // Build notes with discount info
+    let finalNotes = notes ?? "";
+    if (discount > 0) {
+      const discountLine = `(NPR ${discount.toLocaleString()} discount applied)`;
+      finalNotes = finalNotes
+        ? `${finalNotes} ${discountLine}`
+        : discountLine;
+    }
 
     // Update balance
     const { error: updateErr } = await supabase
@@ -529,7 +541,7 @@ export const creditApi = {
         type: "payment",
         amount,
         balance_after: newBalance,
-        notes: notes ?? null,
+        notes: finalNotes || null,
         recorded_by: userId,
       });
     if (txErr) throw new Error(txErr.message);
