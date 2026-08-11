@@ -52,7 +52,9 @@ import { Route as AuthAdminRouteImport } from './routes/auth/admin'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminMerchantsRouteImport } from './routes/admin.merchants'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as PosRetailBillOrderIdRouteImport } from './routes/pos.retail-bill.$orderId'
 import { Route as PosPaymentOrderIdRouteImport } from './routes/pos.payment.$orderId'
+import { Route as PosOrdersRetailRouteImport } from './routes/pos.orders.retail'
 import { Route as PosOrdersNewRouteImport } from './routes/pos.orders.new'
 import { Route as PosBillOrderIdRouteImport } from './routes/pos.bill.$orderId'
 import { Route as MerchantShiftReportShiftIdRouteImport } from './routes/merchant.shift-report.$shiftId'
@@ -275,9 +277,19 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AdminRoute,
 } as any)
+const PosRetailBillOrderIdRoute = PosRetailBillOrderIdRouteImport.update({
+  id: '/retail-bill/$orderId',
+  path: '/retail-bill/$orderId',
+  getParentRoute: () => PosRoute,
+} as any)
 const PosPaymentOrderIdRoute = PosPaymentOrderIdRouteImport.update({
   id: '/payment/$orderId',
   path: '/payment/$orderId',
+  getParentRoute: () => PosRoute,
+} as any)
+const PosOrdersRetailRoute = PosOrdersRetailRouteImport.update({
+  id: '/orders/retail',
+  path: '/orders/retail',
   getParentRoute: () => PosRoute,
 } as any)
 const PosOrdersNewRoute = PosOrdersNewRouteImport.update({
@@ -361,7 +373,9 @@ export interface FileRoutesByFullPath {
   '/merchant/shift-report/$shiftId': typeof MerchantShiftReportShiftIdRoute
   '/pos/bill/$orderId': typeof PosBillOrderIdRoute
   '/pos/orders/new': typeof PosOrdersNewRoute
+  '/pos/orders/retail': typeof PosOrdersRetailRoute
   '/pos/payment/$orderId': typeof PosPaymentOrderIdRouteWithChildren
+  '/pos/retail-bill/$orderId': typeof PosRetailBillOrderIdRoute
   '/m/$merchantSlug/table/$tableToken': typeof MMerchantSlugTableTableTokenRoute
   '/pos/orders/$orderId/add': typeof PosOrdersOrderIdAddRoute
   '/pos/payment/$orderId/receipt': typeof PosPaymentOrderIdReceiptRoute
@@ -410,7 +424,9 @@ export interface FileRoutesByTo {
   '/merchant/shift-report/$shiftId': typeof MerchantShiftReportShiftIdRoute
   '/pos/bill/$orderId': typeof PosBillOrderIdRoute
   '/pos/orders/new': typeof PosOrdersNewRoute
+  '/pos/orders/retail': typeof PosOrdersRetailRoute
   '/pos/payment/$orderId': typeof PosPaymentOrderIdRouteWithChildren
+  '/pos/retail-bill/$orderId': typeof PosRetailBillOrderIdRoute
   '/m/$merchantSlug/table/$tableToken': typeof MMerchantSlugTableTableTokenRoute
   '/pos/orders/$orderId/add': typeof PosOrdersOrderIdAddRoute
   '/pos/payment/$orderId/receipt': typeof PosPaymentOrderIdReceiptRoute
@@ -463,7 +479,9 @@ export interface FileRoutesById {
   '/merchant/shift-report/$shiftId': typeof MerchantShiftReportShiftIdRoute
   '/pos/bill/$orderId': typeof PosBillOrderIdRoute
   '/pos/orders/new': typeof PosOrdersNewRoute
+  '/pos/orders/retail': typeof PosOrdersRetailRoute
   '/pos/payment/$orderId': typeof PosPaymentOrderIdRouteWithChildren
+  '/pos/retail-bill/$orderId': typeof PosRetailBillOrderIdRoute
   '/m/$merchantSlug/table/$tableToken': typeof MMerchantSlugTableTableTokenRoute
   '/pos/orders/$orderId/add': typeof PosOrdersOrderIdAddRoute
   '/pos/payment/$orderId/receipt': typeof PosPaymentOrderIdReceiptRoute
@@ -517,7 +535,9 @@ export interface FileRouteTypes {
     | '/merchant/shift-report/$shiftId'
     | '/pos/bill/$orderId'
     | '/pos/orders/new'
+    | '/pos/orders/retail'
     | '/pos/payment/$orderId'
+    | '/pos/retail-bill/$orderId'
     | '/m/$merchantSlug/table/$tableToken'
     | '/pos/orders/$orderId/add'
     | '/pos/payment/$orderId/receipt'
@@ -566,7 +586,9 @@ export interface FileRouteTypes {
     | '/merchant/shift-report/$shiftId'
     | '/pos/bill/$orderId'
     | '/pos/orders/new'
+    | '/pos/orders/retail'
     | '/pos/payment/$orderId'
+    | '/pos/retail-bill/$orderId'
     | '/m/$merchantSlug/table/$tableToken'
     | '/pos/orders/$orderId/add'
     | '/pos/payment/$orderId/receipt'
@@ -618,7 +640,9 @@ export interface FileRouteTypes {
     | '/merchant/shift-report/$shiftId'
     | '/pos/bill/$orderId'
     | '/pos/orders/new'
+    | '/pos/orders/retail'
     | '/pos/payment/$orderId'
+    | '/pos/retail-bill/$orderId'
     | '/m/$merchantSlug/table/$tableToken'
     | '/pos/orders/$orderId/add'
     | '/pos/payment/$orderId/receipt'
@@ -953,11 +977,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/pos/retail-bill/$orderId': {
+      id: '/pos/retail-bill/$orderId'
+      path: '/retail-bill/$orderId'
+      fullPath: '/pos/retail-bill/$orderId'
+      preLoaderRoute: typeof PosRetailBillOrderIdRouteImport
+      parentRoute: typeof PosRoute
+    }
     '/pos/payment/$orderId': {
       id: '/pos/payment/$orderId'
       path: '/payment/$orderId'
       fullPath: '/pos/payment/$orderId'
       preLoaderRoute: typeof PosPaymentOrderIdRouteImport
+      parentRoute: typeof PosRoute
+    }
+    '/pos/orders/retail': {
+      id: '/pos/orders/retail'
+      path: '/orders/retail'
+      fullPath: '/pos/orders/retail'
+      preLoaderRoute: typeof PosOrdersRetailRouteImport
       parentRoute: typeof PosRoute
     }
     '/pos/orders/new': {
@@ -1078,7 +1116,9 @@ interface PosRouteChildren {
   PosIndexRoute: typeof PosIndexRoute
   PosBillOrderIdRoute: typeof PosBillOrderIdRoute
   PosOrdersNewRoute: typeof PosOrdersNewRoute
+  PosOrdersRetailRoute: typeof PosOrdersRetailRoute
   PosPaymentOrderIdRoute: typeof PosPaymentOrderIdRouteWithChildren
+  PosRetailBillOrderIdRoute: typeof PosRetailBillOrderIdRoute
   PosOrdersOrderIdAddRoute: typeof PosOrdersOrderIdAddRoute
 }
 
@@ -1088,7 +1128,9 @@ const PosRouteChildren: PosRouteChildren = {
   PosIndexRoute: PosIndexRoute,
   PosBillOrderIdRoute: PosBillOrderIdRoute,
   PosOrdersNewRoute: PosOrdersNewRoute,
+  PosOrdersRetailRoute: PosOrdersRetailRoute,
   PosPaymentOrderIdRoute: PosPaymentOrderIdRouteWithChildren,
+  PosRetailBillOrderIdRoute: PosRetailBillOrderIdRoute,
   PosOrdersOrderIdAddRoute: PosOrdersOrderIdAddRoute,
 }
 

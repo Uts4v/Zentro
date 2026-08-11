@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   Clock,
   Banknote,
-  TrendingUp,
   TrendingDown,
   Plus,
   X,
@@ -58,7 +57,6 @@ function ShiftPage() {
   const [closeNotes, setCloseNotes] = useState("");
 
   // Cash movement form
-  const [dropType, setDropType] = useState<"drop" | "payout">("payout");
   const [dropAmount, setDropAmount] = useState("");
   const [dropReason, setDropReason] = useState("");
 
@@ -176,7 +174,7 @@ function ShiftPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await shiftApi.recordCashMovement(shift!.id, amt, dropType, dropReason);
+      await shiftApi.recordCashMovement(shift!.id, amt, "payout", dropReason);
       setShowDropModal(false);
       setDropAmount("");
       setDropReason("");
@@ -381,14 +379,14 @@ function ShiftPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowDropModal(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-ink transition-colors hover:bg-mist"
+              className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-mist"
             >
-              <Plus className="h-3 w-3" />
-              Cash Drop / Payout
+              <Plus className="h-4 w-4" />
+              Cash Drop
             </button>
             <button
               onClick={() => setShowCloseModal(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90"
+              className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               Close Shift
             </button>
@@ -404,8 +402,7 @@ function ShiftPage() {
             <Row label="Walk-in orders" value={String(summary.walk_in_orders)} />
             <Row label="Total orders" value={String(summary.total_orders)} />
             <div className="border-t border-border pt-2">
-              <Row label="Cash drops (added)" value={`NPR ${summary.cash_drops.toLocaleString()}`} />
-              <Row label="Cash payouts" value={`NPR ${summary.cash_payouts.toLocaleString()}`} />
+              <Row label="Cash drops" value={`NPR ${summary.cash_payouts.toLocaleString()}`} />
             </div>
             <div className="border-t border-border pt-2">
               <Row
@@ -421,29 +418,19 @@ function ShiftPage() {
       {/* Drops log */}
       {drops.length > 0 && (
         <div className="glass rounded-2xl p-5">
-          <h3 className="text-sm font-medium text-ink">Cash Movements</h3>
+          <h3 className="text-base font-semibold text-ink">Cash Movements</h3>
           <div className="mt-3 space-y-2">
             {drops.map((d) => (
               <div
                 key={d.id}
-                className="flex items-center justify-between rounded-xl bg-mist px-3 py-2 text-xs"
+                className="flex items-center justify-between rounded-xl bg-mist px-4 py-3 text-sm"
               >
                 <div className="flex items-center gap-2">
-                  {d.direction === "drop" ? (
-                    <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                  ) : (
-                    <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
-                  )}
-                  <span className="font-medium text-ink">
-                    {d.direction === "drop" ? "DROP" : "PAYOUT"}
-                  </span>
+                  <TrendingDown className="h-4 w-4 text-rose-600" />
+                  <span className="font-medium text-ink">CASH DROP</span>
                   <span className="text-muted-foreground">{d.reason}</span>
                 </div>
-                <span
-                  className={`font-medium ${
-                    d.direction === "drop" ? "text-emerald-600" : "text-rose-600"
-                  }`}
-                >
+                <span className="font-medium text-rose-600">
                   NPR {d.amount.toLocaleString()}
                 </span>
               </div>
@@ -452,33 +439,11 @@ function ShiftPage() {
         </div>
       )}
 
-      {/* Cash Drop/Payout Modal */}
+      {/* Cash Drop Modal */}
       {showDropModal && (
         <Modal onClose={() => setShowDropModal(false)}>
-          <h3 className="font-display text-xl text-ink">Record Cash Movement</h3>
+          <h3 className="font-display text-xl text-ink">Record Cash Drop</h3>
           <div className="mt-4 space-y-3">
-            <div>
-              <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                Type
-              </label>
-              <div className="mt-1.5 flex gap-2">
-                {(["drop", "payout"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setDropType(t)}
-                    className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-medium transition-colors ${
-                      dropType === t
-                        ? t === "drop"
-                          ? "bg-emerald-600 text-white"
-                          : "bg-rose-600 text-white"
-                        : "border border-border text-muted-foreground hover:bg-mist"
-                    }`}
-                  >
-                    {t === "drop" ? "↓ Cash Drop (adding)" : "↑ Cash Payout (removing)"}
-                  </button>
-                ))}
-              </div>
-            </div>
             <div>
               <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                 Amount
@@ -506,14 +471,14 @@ function ShiftPage() {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setShowDropModal(false)}
-                className="flex-1 rounded-xl border border-border py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-mist"
+                className="flex-1 rounded-xl border border-border py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-mist"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRecordDrop}
                 disabled={submitting}
-                className="flex-1 rounded-xl bg-ink py-2.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="flex-1 rounded-xl bg-ink py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Record"}
               </button>
@@ -588,14 +553,14 @@ function ShiftPage() {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setShowCloseModal(false)}
-                className="flex-1 rounded-xl border border-border py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-mist"
+                className="flex-1 rounded-xl border border-border py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-mist"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCloseShift}
                 disabled={submitting || !actualCash}
-                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="flex-1 rounded-xl bg-rose-600 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
@@ -621,7 +586,7 @@ function Row({
   bold?: boolean;
 }) {
   return (
-    <div className="flex justify-between text-xs">
+    <div className="flex justify-between text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className={bold ? "font-medium text-ink" : "text-ink"}>{value}</span>
     </div>

@@ -853,6 +853,106 @@ export const posApi = {
       credit_discount_amount: order.credit_discount_amount ?? null,
     };
   },
+
+  // ── Retail store (counter) sales ─────────────────────────────────────────
+  // Retail counter orders are persisted to retail_orders (same table the
+  // customer retail shop uses). Payment details are stored in `notes` since
+  // retail_orders has no dedicated payment columns yet.
+
+  createRetailStoreOrder: async (payload: {
+    merchant_id: string;
+    items: {
+      product_id: string;
+      name: string;
+      price: number;
+      quantity: number;
+    }[];
+    customer_name?: string;
+    payment_method: "cash" | "fonepay";
+    cash_received?: number;
+    change?: number;
+    notes?: string;
+  }) => {
+    const userId = await getCurrentUserId();
+
+    const subtotal = payload.items.reduce(
+      (sum, i) => sum + i.price * i.quantity,
+      0
+    );
+
+    const noteLines = [
+      "Counter sale · Paid by " + payload.payment_method.toUpperCase(),
+      payload.customer_name ? `Customer: ${payload.customer_name}` : "",
+      payload.payment_method === "cash" && payload.cash_received != null
+        ? `Cash received: NPR ${payload.cash_received.toLocaleString()}`
+        : "",
+      payload.change ? `Change: NPR ${payload.change.toLocaleString()}` : "",
+      payload.notes ?? "",
+    ].filter(Boolean);
+
+    const { data: order, error: orderErr } = await supabase
+      .from("retail_orders")
+      .insert({
+        customer_id: userId,
+        merchant_id: payload.merchant_id,
+        status: "completed",
+        total_amount: subtotal,
+        notes: noteLines.join("\n"),
+        shipping_name: "",
+        shipping_phone: "",
+        shipping_address: "",
+      })
+      .select()
+      .single();
+    if (orderErr) throw new Error(orderErr.message);
+
+    const { error: itemsErr } = await supabase.from("retail_order_items").insert(
+      payload.items.map((i) => ({
+        order_id: order.id,
+        product_id: i.product_id,
+        name: i.name,
+        price: i.price,
+        quantity: i.quantity,
+        subtotal: i.price * i.quantity,
+      }))
+    );
+    if (itemsErr) throw new Error(itemsErr.message);
+
+    return { ...order, retail_order_items: payload.items } as any;
+  },
+
+  getRetailOrderForBill: async (orderId: string) => {
+    const { data: order, error } = await supabase
+      .from("retail_orders")
+      .select(
+        "*, retail_order_items(*), merchant:merchant_profiles(store_name, address, phone, logo_url)"
+      )
+      .eq("id", orderId)
+      .single();
+    if (error) throw new Error(error.message);
+
+    const merchant = order.merchant as any;
+    const items = (order.retail_order_items ?? []).map((item: any) => ({
+      name: item.name,
+      quantity: item.quantity,
+      price: Number(item.price),
+      subtotal: Number(item.subtotal),
+    }));
+
+    return {
+      order_id: order.id,
+      receipt_number: order.id.slice(0, 8).toUpperCase(),
+      merchant_name: merchant?.store_name ?? "Store",
+      merchant_address: merchant?.address ?? null,
+      merchant_phone: merchant?.phone ?? null,
+      merchant_logo: merchant?.logo_url ?? null,
+      items,
+      subtotal: items.reduce((s: number, i: any) => s + i.subtotal, 0),
+      total: Number(order.total_amount),
+      created_at: order.created_at,
+      notes: order.notes ?? null,
+    };
+  },
 };
 
 // ── Report API ──────────────────────────────────────────────────────────────

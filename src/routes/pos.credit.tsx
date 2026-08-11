@@ -220,7 +220,7 @@ function CreditPage() {
                 setShowPayModal(true);
                 setPayAmount(String(selectedAccount.balance));
               }}
-              className="rounded-xl bg-ink px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              className="rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
               Record Payment
             </button>
@@ -252,13 +252,13 @@ function CreditPage() {
 
         {/* Transaction history */}
         <div className="glass rounded-2xl p-5">
-          <h3 className="text-sm font-medium text-ink">Transaction History</h3>
+          <h3 className="text-base font-semibold text-ink">Transaction History</h3>
           {txLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           ) : transactions.length === 0 ? (
-            <p className="py-8 text-center text-xs text-muted-foreground">
+            <p className="py-8 text-center text-sm text-muted-foreground">
               No transactions yet
             </p>
           ) : (
@@ -269,7 +269,7 @@ function CreditPage() {
                 return (
                   <div key={tx.id}>
                     <div
-                      className={`flex items-center justify-between rounded-xl bg-mist px-3 py-2 text-xs ${hasOrder ? "cursor-pointer hover:bg-mist/80" : ""}`}
+                      className={`flex items-center justify-between rounded-xl bg-mist px-4 py-3 text-sm ${hasOrder ? "cursor-pointer hover:bg-mist/80" : ""}`}
                       onClick={() => {
                         if (hasOrder) {
                           setExpandedTxId(isExpanded ? null : tx.id);
@@ -403,7 +403,7 @@ function CreditPage() {
                     <button
                       key={m}
                       onClick={() => setPayMethod(m)}
-                      className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-medium capitalize transition-colors ${
+                      className={`flex-1 rounded-xl px-4 py-3 text-sm font-medium capitalize transition-colors ${
                         payMethod === m
                           ? "bg-ink text-primary-foreground"
                           : "border border-border text-muted-foreground hover:bg-mist"
@@ -513,14 +513,14 @@ function CreditPage() {
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => setShowPayModal(false)}
-                  className="flex-1 rounded-xl border border-border py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-mist"
+                  className="flex-1 rounded-xl border border-border py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-mist"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleRecordPayment}
                   disabled={submitting || !payAmount}
-                  className="flex-1 rounded-xl bg-ink py-2.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-ink py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
                   {submitting ? (
                     <Loader2 className="mx-auto h-4 w-4 animate-spin" />
@@ -548,24 +548,24 @@ function CreditPage() {
       </button>
 
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl text-ink">Credit Accounts</h1>
+        <h1 className="font-display text-3xl text-ink">Credit Accounts</h1>
         <button
           onClick={() => setShowNewModal(true)}
-          className="flex items-center gap-1.5 rounded-xl bg-ink px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          className="flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
           New Account
         </button>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or phone..."
-          className="h-10 w-full rounded-xl bg-mist pl-9 pr-3 text-xs text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
+          className="h-11 w-full rounded-xl bg-mist pl-10 pr-3 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
         />
       </div>
 
@@ -581,22 +581,22 @@ function CreditPage() {
           const nearLimit = usage > 80;
           const atLimit = acc.balance >= acc.credit_limit;
           return (
-            <div key={acc.id} className="glass flex items-center justify-between rounded-xl p-3">
+            <div key={acc.id} className="glass flex items-center justify-between rounded-xl p-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-ink">{acc.full_name}</p>
+                  <p className="text-base font-semibold text-ink">{acc.full_name}</p>
                   {atLimit && (
-                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600">
+                    <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-600">
                       At limit
                     </span>
                   )}
                   {nearLimit && !atLimit && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                    <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-600">
                       Near limit
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   NPR {acc.balance.toLocaleString()} / NPR{" "}
                   {acc.credit_limit.toLocaleString()}
                 </p>
@@ -604,7 +604,7 @@ function CreditPage() {
               <div className="flex gap-1.5">
                 <button
                   onClick={() => viewAccount(acc)}
-                  className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-mist"
+                  className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground hover:bg-mist"
                 >
                   View
                 </button>
@@ -614,7 +614,7 @@ function CreditPage() {
                     setShowPayModal(true);
                     setPayAmount(String(acc.balance));
                   }}
-                  className="rounded-lg bg-ink px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                  className="rounded-lg bg-ink px-3.5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
                 >
                   Pay
                 </button>
@@ -693,14 +693,14 @@ function CreditPage() {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setShowNewModal(false)}
-                className="flex-1 rounded-xl border border-border py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-mist"
+                className="flex-1 rounded-xl border border-border py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-mist"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateAccount}
                 disabled={submitting || !newName.trim()}
-                className="flex-1 rounded-xl bg-ink py-2.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="flex-1 rounded-xl bg-ink py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
@@ -718,11 +718,11 @@ function CreditPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-mist p-3">
+    <div className="rounded-xl bg-mist p-4">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
-      <p className="mt-0.5 text-sm font-medium text-ink">{value}</p>
+      <p className="mt-0.5 text-base font-semibold text-ink">{value}</p>
     </div>
   );
 }

@@ -155,17 +155,17 @@ function BillPage() {
             <button
               onClick={handleStartEditDiscount}
               disabled={editingDiscount}
-              className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-ink transition-colors hover:bg-mist disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-mist disabled:opacity-50"
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-4 w-4" />
               {bill.discount_amount > 0 ? "Edit Discount" : "Add Discount"}
             </button>
           )}
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-ink transition-colors hover:bg-mist"
+            className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-mist"
           >
-            <Printer className="h-3 w-3" />
+            <Printer className="h-4 w-4" />
             Print Bill
           </button>
           {isUnpaid && (
@@ -175,9 +175,9 @@ function BillPage() {
                   to: `/pos/payment/${bill.order_id}` as any,
                 })
               }
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90"
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
-              <CreditCard className="h-3 w-3" />
+              <CreditCard className="h-4 w-4" />
               Pay Now
             </button>
           )}
@@ -391,9 +391,9 @@ function BillPage() {
                 to: `/pos/payment/${bill.order_id}` as any,
               })
             }
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-3 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
           >
-            <CreditCard className="h-3.5 w-3.5" />
+            <CreditCard className="h-4 w-4" />
             Pay Now — NPR {bill.total.toLocaleString()}
           </button>
         )}

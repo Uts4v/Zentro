@@ -1,5 +1,5 @@
 //routes/merchant.intdex.tsx
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   TrendingUp,
   Users,
@@ -7,10 +7,13 @@ import {
   Loader2,
   Activity,
   ShoppingBag,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { shiftApi, type CashShift } from "@/lib/pos-api";
 
 export const Route = createFileRoute("/merchant/")({
   head: () => ({ meta: [{ title: "Overview · Merchant" }] }),
@@ -57,6 +60,28 @@ function Overview() {
   const [topItems, setTopItems] = useState<TopItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [shift, setShift] = useState<CashShift | null>(null);
+  const [shiftLoading, setShiftLoading] = useState(true);
+
+  // Fetch current shift status so the Overview can surface a quick
+  // "Go to Shift" shortcut (open or needs-starting).
+  useEffect(() => {
+    let cancelled = false;
+    shiftApi
+      .currentShift()
+      .then((s) => {
+        if (!cancelled) setShift(s);
+      })
+      .catch(() => {
+        if (!cancelled) setShift(null);
+      })
+      .finally(() => {
+        if (!cancelled) setShiftLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!merchantProfile?.id) return;
@@ -217,12 +242,34 @@ function Overview() {
             </p>
           </div>
 
-          <div className="inline-flex w-fit items-center gap-2 rounded-full bg-mist px-4 py-2">
-            <Activity className="h-4 w-4 text-ink" />
-            <span className="text-xs font-medium text-ink">
-              {velocityChange >= 0 ? "+" : ""}
-              {velocityChange}% order velocity
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-mist px-4 py-2">
+              <Activity className="h-4 w-4 text-ink" />
+              <span className="text-xs font-medium text-ink">
+                {velocityChange >= 0 ? "+" : ""}
+                {velocityChange}% order velocity
+              </span>
+            </div>
+
+            {/* Quick access to the current shift */}
+            <Link
+              to="/pos/shift"
+              className={`group inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all hover:opacity-90 ${
+                shift && shift.status === "open"
+                  ? "bg-emerald-600 text-white shadow-ember"
+                  : "bg-amber-500 text-white"
+              }`}
+            >
+              <Clock className="h-4 w-4" />
+              {shiftLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : shift && shift.status === "open" ? (
+                "Go to Shift"
+              ) : (
+                "Start Shift"
+              )}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
         </div>
       </section>

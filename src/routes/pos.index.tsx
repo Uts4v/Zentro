@@ -251,38 +251,38 @@ function POSDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="font-display text-2xl text-ink">Orders</h1>
-          <span className="rounded-full bg-mist px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+          <h1 className="font-display text-3xl text-ink">Orders</h1>
+          <span className="rounded-full bg-mist px-3 py-1 text-sm font-medium text-muted-foreground">
             {orders.length}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search orders..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-9 w-48 rounded-lg bg-mist pl-9 pr-3 text-xs text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
+              className="h-11 w-56 rounded-xl bg-mist pl-10 pr-3 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
             />
           </div>
           <button
             onClick={() => fetchOrders()}
-            className="grid h-9 w-9 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-mist"
+            className="grid h-11 w-11 place-items-center rounded-xl border border-border text-muted-foreground hover:bg-mist"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className="h-4 w-4" />
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto">
+      <div className="flex gap-1.5 overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.key
                 ? "bg-ink text-primary-foreground"
                 : "text-muted-foreground hover:bg-mist"
@@ -297,28 +297,35 @@ function POSDashboard() {
       </div>
 
       {/* Quick actions */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Link
           to="/pos/orders/new"
           search={{ type: "walk_in" }}
-          className="flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          className="flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
           New Walk-in Order
         </Link>
         <Link
           to="/pos/orders/new"
           search={{ type: "dine_in" }}
-          className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-medium text-ink transition-colors hover:bg-mist"
+          className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-mist"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
           New Table Order
         </Link>
         <Link
-          to="/pos/credit"
-          className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-medium text-ink transition-colors hover:bg-mist"
+          to="/pos/orders/retail"
+          className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-mist"
         >
-          <CreditCardIcon className="h-3.5 w-3.5" />
+          <ShoppingBag className="h-4 w-4" />
+          Retail Sale
+        </Link>
+        <Link
+          to="/pos/credit"
+          className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-mist"
+        >
+          <CreditCardIcon className="h-4 w-4" />
           Credit Accounts
         </Link>
       </div>
@@ -388,25 +395,25 @@ function OrderCard({
       <div className="flex items-start justify-between">
         <div>
           {isDineIn ? (
-            <p className="text-lg font-bold text-ink">
+            <p className="text-xl font-bold text-ink">
               {order.room_name_snapshot ? `${order.room_name_snapshot} · ` : ""}{order.table_name_snapshot || "Table"}
             </p>
           ) : (
-            <p className="text-lg font-bold text-amber-600">PICKUP</p>
+            <p className="text-xl font-bold text-amber-600">PICKUP</p>
           )}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             #{order.receipt_number || order.id.slice(0, 8)}
           </p>
         </div>
         <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLOR[order.status]}`}
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_COLOR[order.status]}`}
         >
           {order.status.toUpperCase()}
         </span>
       </div>
 
       {/* Customer info */}
-      <div className="mt-2 text-xs text-muted-foreground">
+      <div className="mt-2 text-sm text-muted-foreground">
         {isDineIn ? "Dine-in" : "Pickup"}
         {order.walk_in_name ? ` · ${order.walk_in_name}` : ""}
         {order.room_name_snapshot ? ` · ${order.room_name_snapshot}` : ""}
@@ -416,7 +423,7 @@ function OrderCard({
       {/* Items list */}
       <div className="mt-2.5 rounded-xl bg-background/60 px-3 py-2">
         {order.order_items?.map((item, i) => (
-          <div key={i} className="flex items-center justify-between py-0.5 text-xs">
+          <div key={i} className="flex items-center justify-between py-1 text-sm">
             <span className="text-ink">
               <span className="font-medium">{item.name || menuItemNames[item.menu_item_id] || "Item"}</span>
               <span className="ml-1 text-muted-foreground">×{item.quantity}</span>
@@ -427,15 +434,15 @@ function OrderCard({
           </div>
         ))}
         {order.notes && (
-          <p className="mt-1.5 text-[11px] italic text-muted-foreground">
+          <p className="mt-1.5 text-xs italic text-muted-foreground">
             Note: {order.notes}
           </p>
         )}
       </div>
 
       {/* Total + time */}
-      <div className="mt-2 flex items-center justify-between text-xs">
-        <span className="font-medium text-ink">
+      <div className="mt-2 flex items-center justify-between text-sm">
+        <span className="text-base font-semibold text-ink">
           NPR {Number(order.total_amount).toLocaleString()}
         </span>
         <span className="text-muted-foreground">
@@ -473,48 +480,48 @@ function OrderCard({
       )}
 
       {/* Actions */}
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         {order.status !== "ready" && (
           <button
             onClick={() => onAdvance(order)}
-            className="flex items-center gap-1 rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            className="flex items-center gap-1 rounded-lg bg-ink px-3.5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
-            <Check className="h-3 w-3" />
+            <Check className="h-4 w-4" />
             {advanceLabel}
           </button>
         )}
         {order.status === "ready" && (
           <Link
             to={`/pos/payment/${order.id}` as any}
-            className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
           >
-            <CreditCard className="h-3 w-3" />
+            <CreditCard className="h-4 w-4" />
             Pay Now
           </Link>
         )}
         {order.payment_status !== "paid" && order.status !== "completed" && order.status !== "cancelled" && (
           <Link
             to={`/pos/orders/${order.id}/add` as any}
-            className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-mist"
+            className="flex items-center gap-1 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-mist"
           >
-            <PlusCircle className="h-3 w-3" />
+            <PlusCircle className="h-4 w-4" />
             Add Items
           </Link>
         )}
         {CANCELLABLE_STATUSES.has(order.status) && confirmCancelId !== order.id && (
           <button
             onClick={() => setConfirmCancelId(order.id)}
-            className="flex items-center gap-1 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+            className="flex items-center gap-1 rounded-lg border border-destructive/30 px-3.5 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
           >
-            <X className="h-3 w-3" />
+            <X className="h-4 w-4" />
             Cancel
           </button>
         )}
         <Link
           to={`/pos/bill/${order.id}` as any}
-          className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-mist"
+          className="flex items-center gap-1 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-mist"
         >
-          <Printer className="h-3 w-3" />
+          <Printer className="h-4 w-4" />
           Bill
         </Link>
 

@@ -19,6 +19,7 @@ import {
   CreditCard,
   AlertTriangle,
   User,
+  Package,
 } from "lucide-react";
 
 export const Route = createFileRoute("/pos")({
@@ -71,6 +72,7 @@ function POSLayout() {
   const navItems = [
     { to: "/pos", label: "Orders", icon: ShoppingCart },
     { to: "/pos/orders/new", label: "New Order", icon: Plus },
+    { to: "/pos/orders/retail", label: "Retail", icon: Package },
     { to: "/pos/shift", label: "Shift", icon: Clock },
     { to: "/pos/credit", label: "Credit", icon: CreditCard },
   ];
@@ -79,11 +81,11 @@ function POSLayout() {
     <div className="flex min-h-dvh flex-col bg-background">
       {/* Top bar */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/80 px-4 py-2.5 backdrop-blur-xl">
-        <Link to="/pos" className="font-display text-lg text-ink">
+        <Link to="/pos" className="font-display text-xl text-ink">
           Zentro <span className="text-ember">POS</span>
         </Link>
 
-        <span className="text-sm font-medium text-ink">
+        <span className="text-base font-semibold text-ink">
           {merchantProfile?.store_name ?? "Zentro POS"}
         </span>
 
@@ -116,7 +118,7 @@ function POSLayout() {
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       ) : shift ? (
-        <div className="flex items-center justify-between border-b border-border bg-emerald-50/50 px-4 py-2 text-xs text-emerald-800">
+        <div className="flex items-center justify-between border-b border-border bg-emerald-50/50 px-4 py-2.5 text-sm text-emerald-800">
           <span>
             Shift open since{" "}
             {new Date(shift.opened_at).toLocaleTimeString("en-US", {
@@ -128,21 +130,21 @@ function POSLayout() {
           <div className="flex items-center gap-2">
             <Link
               to="/pos/shift"
-              className="rounded-lg bg-emerald-100 px-2.5 py-1 font-medium transition-colors hover:bg-emerald-200"
+              className="rounded-lg bg-emerald-100 px-3 py-1.5 font-medium transition-colors hover:bg-emerald-200"
             >
               View Shift Details
             </Link>
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-between border-b border-border bg-amber-50 px-4 py-2.5">
+        <div className="flex items-center justify-between border-b border-border bg-amber-50 px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-amber-800">
             <AlertTriangle className="h-4 w-4" />
             No active shift. Start a shift before processing orders.
           </div>
           <Link
             to="/pos/shift"
-            className="rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-200"
+            className="rounded-lg bg-amber-100 px-3.5 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-200"
           >
             Start Shift
           </Link>
@@ -150,7 +152,7 @@ function POSLayout() {
       )}
 
       {/* Nav tabs */}
-      <nav className="flex gap-1 border-b border-border px-4 py-1.5">
+      <nav className="flex gap-1.5 border-b border-border px-4 py-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -161,13 +163,13 @@ function POSLayout() {
             <Link
               key={item.to}
               to={item.to as any}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 isActive
                   ? "bg-ink text-primary-foreground"
                   : "text-muted-foreground hover:bg-mist hover:text-ink"
               }`}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-4 w-4" />
               {item.label}
             </Link>
           );
@@ -175,7 +177,7 @@ function POSLayout() {
       </nav>
 
       {/* Page content */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-8">
         <Outlet />
       </main>
     </div>

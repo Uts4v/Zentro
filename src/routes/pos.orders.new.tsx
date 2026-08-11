@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { menuApi, type MenuItem, type MerchantTable, tableApi } from "@/lib/api";
 import { posApi } from "@/lib/pos-api";
-import { Loader2, ArrowLeft, Search, Plus, Minus, Trash2, Tag } from "lucide-react";
+import { Loader2, ArrowLeft, Search, Plus, Minus, Trash2, Tag, ShoppingBag } from "lucide-react";
 
 export const Route = createFileRoute("/pos/orders/new")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -297,28 +297,28 @@ function NewOrderPage() {
 
       {/* Step 2: Menu + Cart */}
       {step === 2 && (
-        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
           {/* Menu */}
           <div className="space-y-3">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search menu..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-10 w-full rounded-xl bg-mist pl-9 pr-3 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
+                className="h-11 w-full rounded-xl bg-mist pl-10 pr-3 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
               />
             </div>
 
             {/* Category tabs */}
-            <div className="flex gap-1 overflow-x-auto">
+            <div className="flex gap-1 overflow-x-auto pb-1">
               {categories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
-                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
                     category === cat
                       ? "bg-ink text-primary-foreground"
                       : "text-muted-foreground hover:bg-mist"
@@ -330,28 +330,30 @@ function NewOrderPage() {
             </div>
 
             {/* Menu grid */}
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2.5 sm:grid-cols-2">
               {filteredMenu.map((item) => {
                 const inCart = cart.find((c) => c.menu_item_id === item.id);
                 return (
                   <button
                     key={item.id}
                     onClick={() => addToCart(item)}
-                    className={`glass flex items-center gap-3 rounded-xl p-3 text-left transition-all hover:ring-2 hover:ring-ember/20 ${
+                    className={`glass flex items-center gap-3 rounded-xl p-3.5 text-left transition-all hover:ring-2 hover:ring-ember/20 ${
                       inCart ? "ring-2 ring-ember/40" : ""
                     }`}
                   >
-                    <span className="text-2xl">{item.emoji || "🍵"}</span>
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-mist text-2xl">
+                      {item.emoji || "🍵"}
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">
+                      <p className="truncate text-base font-medium text-ink">
                         {item.name}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         NPR {Number(item.price).toLocaleString()}
                       </p>
                     </div>
                     {inCart && (
-                      <span className="rounded-full bg-ember px-2 py-0.5 text-[10px] font-bold text-white">
+                      <span className="rounded-full bg-ember px-2.5 py-0.5 text-xs font-bold text-white">
                         ×{inCart.quantity}
                       </span>
                     )}
@@ -361,10 +363,21 @@ function NewOrderPage() {
             </div>
           </div>
 
-          {/* Cart */}
-          <div className="glass rounded-2xl p-4 lg:sticky lg:top-20 lg:h-fit">
+          {/* Cart — always visible, sticky with its own scroll on desktop */}
+          <div
+            id="pos-cart"
+            className="glass rounded-2xl p-4 scroll-mt-16 lg:sticky lg:top-24 lg:h-fit lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto"
+          >
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-ink">Cart</h3>
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <ShoppingBag className="h-4 w-4 text-ember" />
+                Cart
+                {cart.length > 0 && (
+                  <span className="rounded-full bg-ember px-2 py-0.5 text-xs font-bold text-white">
+                    {cart.reduce((s, c) => s + c.quantity, 0)}
+                  </span>
+                )}
+              </h3>
               {cart.length > 0 && (
                 <button
                   onClick={clearCart}
@@ -376,44 +389,44 @@ function NewOrderPage() {
             </div>
 
             {cart.length === 0 ? (
-              <p className="py-8 text-center text-xs text-muted-foreground">
+              <p className="py-10 text-center text-sm text-muted-foreground">
                 Tap items to add
               </p>
             ) : (
               <>
-                <div className="mt-3 space-y-2">
+                <div className="mt-3 space-y-3">
                   {cart.map((item) => (
                     <div
                       key={item.menu_item_id}
-                      className="flex items-center justify-between"
+                      className="flex items-center justify-between gap-2"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-ink">
+                        <p className="truncate text-sm font-medium text-ink">
                           {item.name}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           NPR {item.price.toLocaleString()}
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => removeFromCart(item.menu_item_id)}
-                          className="grid h-6 w-6 place-items-center rounded-md bg-mist text-muted-foreground hover:bg-rose-50 hover:text-rose-600"
+                          className="grid h-8 w-8 place-items-center rounded-lg bg-mist text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600"
                         >
                           {item.quantity === 1 ? (
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-4 w-4" />
                           ) : (
-                            <Minus className="h-3 w-3" />
+                            <Minus className="h-4 w-4" />
                           )}
                         </button>
-                        <span className="w-5 text-center text-xs font-medium text-ink">
+                        <span className="w-6 text-center text-sm font-semibold text-ink">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => incrementCartItem(item.menu_item_id)}
-                          className="grid h-6 w-6 place-items-center rounded-md bg-mist text-muted-foreground hover:bg-emerald-50 hover:text-emerald-600"
+                          className="grid h-8 w-8 place-items-center rounded-lg bg-mist text-muted-foreground transition-colors hover:bg-emerald-50 hover:text-emerald-600"
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
@@ -421,7 +434,7 @@ function NewOrderPage() {
                 </div>
 
                 <div className="mt-3 border-t border-border pt-3">
-                  <div className="flex justify-between text-xs">
+                  <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="font-medium text-ink">
                       NPR {cartTotal.toLocaleString()}
@@ -432,9 +445,9 @@ function NewOrderPage() {
                   {!showDiscount && discountAmount === 0 && (
                     <button
                       onClick={() => setShowDiscount(true)}
-                      className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-ink"
+                      className="mt-2 flex items-center gap-1 text-sm text-muted-foreground hover:text-ink"
                     >
-                      <Tag className="h-3 w-3" />
+                      <Tag className="h-3.5 w-3.5" />
                       Add discount
                     </button>
                   )}
@@ -488,7 +501,7 @@ function NewOrderPage() {
                     </div>
                   )}
                   {discountAmount > 0 && (
-                    <div className="mt-1.5 flex justify-between text-xs">
+                    <div className="mt-1.5 flex justify-between text-sm">
                       <span className="text-emerald-600">
                         Discount{discountType === "percent" ? ` (${discountValue}%)` : ""}
                       </span>
@@ -506,17 +519,17 @@ function NewOrderPage() {
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Order notes..."
                     rows={2}
-                    className="w-full rounded-lg bg-mist px-3 py-2 text-xs text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
+                    className="w-full rounded-lg bg-mist px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
                   />
                 </div>
 
                 <button
                   onClick={handlePlaceOrder}
                   disabled={submitting || cart.length === 0}
-                  className="mt-3 grid h-11 w-full place-items-center rounded-xl bg-ink text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="mt-3 grid h-12 w-full place-items-center rounded-xl bg-ink text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
                   {submitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     `Place Order · NPR ${orderTotal.toLocaleString()}`
                   )}
@@ -524,6 +537,29 @@ function NewOrderPage() {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Floating cart bar on small screens */}
+      {step === 2 && cart.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur-xl lg:hidden">
+          <button
+            onClick={() =>
+              document
+                .getElementById("pos-cart")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+            className="flex h-12 w-full items-center justify-between rounded-xl bg-ink px-4 text-primary-foreground"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <ShoppingBag className="h-4 w-4" />
+              {cart.reduce((s, c) => s + c.quantity, 0)} item
+              {cart.reduce((s, c) => s + c.quantity, 0) === 1 ? "" : "s"}
+            </span>
+            <span className="text-sm font-semibold">
+              NPR {orderTotal.toLocaleString()} · Review →
+            </span>
+          </button>
         </div>
       )}
     </div>
