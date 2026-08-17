@@ -49,7 +49,6 @@ function RetailSalePage() {
   const [submitting, setSubmitting] = useState(false);
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [discountValue, setDiscountValue] = useState("");
-  const [showDiscount, setShowDiscount] = useState(false);
 
   useEffect(() => {
     if (!merchant) return;
@@ -365,65 +364,54 @@ function RetailSalePage() {
                     </span>
                   </div>
 
-                  {/* Discount */}
-                  {!showDiscount && discountAmount === 0 && (
-                    <button
-                      onClick={() => setShowDiscount(true)}
-                      className="flex items-center gap-1 text-sm text-muted-foreground hover:text-ink"
-                    >
-                      <Tag className="h-3.5 w-3.5" />
-                      Add discount
-                    </button>
-                  )}
-                  {showDiscount && (
-                    <div className="space-y-2 rounded-lg bg-mist p-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                          Discount
-                        </span>
+                  {/* Discount — always visible */}
+                  <div className="space-y-2 rounded-lg bg-mist p-2">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <Tag className="h-3 w-3" />
+                        Discount
+                      </span>
+                      {discountAmount > 0 && (
                         <button
-                          onClick={() => {
-                            setShowDiscount(false);
-                            setDiscountValue("");
-                          }}
+                          onClick={() => setDiscountValue("")}
                           className="text-[10px] text-muted-foreground hover:text-rose-600"
                         >
                           Remove
                         </button>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={() => setDiscountType("amount")}
-                          className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors ${
-                            discountType === "amount"
-                              ? "bg-ink text-primary-foreground"
-                              : "text-muted-foreground hover:bg-white"
-                          }`}
-                        >
-                          NPR
-                        </button>
-                        <button
-                          onClick={() => setDiscountType("percent")}
-                          className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors ${
-                            discountType === "percent"
-                              ? "bg-ink text-primary-foreground"
-                              : "text-muted-foreground hover:bg-white"
-                          }`}
-                        >
-                          %
-                        </button>
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        max={discountType === "percent" ? 100 : cartTotal}
-                        value={discountValue}
-                        onChange={(e) => setDiscountValue(e.target.value)}
-                        placeholder={discountType === "amount" ? "0" : "0%"}
-                        className="h-8 w-full rounded-lg bg-white px-3 text-xs text-ink outline-none focus:ring-2 focus:ring-ember/40"
-                      />
+                      )}
                     </div>
-                  )}
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setDiscountType("amount")}
+                        className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors ${
+                          discountType === "amount"
+                            ? "bg-ink text-primary-foreground"
+                            : "text-muted-foreground hover:bg-white"
+                        }`}
+                      >
+                        NPR
+                      </button>
+                      <button
+                        onClick={() => setDiscountType("percent")}
+                        className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors ${
+                          discountType === "percent"
+                            ? "bg-ink text-primary-foreground"
+                            : "text-muted-foreground hover:bg-white"
+                        }`}
+                      >
+                        %
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max={discountType === "percent" ? 100 : cartTotal}
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(e.target.value)}
+                      placeholder={discountType === "amount" ? "0" : "0%"}
+                      className="h-8 w-full rounded-lg bg-white px-3 text-xs text-ink outline-none focus:ring-2 focus:ring-ember/40"
+                    />
+                  </div>
                   {discountAmount > 0 && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-emerald-600">
@@ -482,6 +470,55 @@ function RetailSalePage() {
               <div className="flex items-center justify-between pt-2 text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium text-ink">NPR {cartTotal.toLocaleString()}</span>
+              </div>
+
+              {/* Discount — always visible */}
+              <div className="space-y-2 rounded-lg bg-mist p-2">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Tag className="h-3 w-3" />
+                    Discount
+                  </span>
+                  {discountAmount > 0 && (
+                    <button
+                      onClick={() => setDiscountValue("")}
+                      className="text-[10px] text-muted-foreground hover:text-rose-600"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setDiscountType("amount")}
+                    className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors ${
+                      discountType === "amount"
+                        ? "bg-ink text-primary-foreground"
+                        : "text-muted-foreground hover:bg-white"
+                    }`}
+                  >
+                    NPR
+                  </button>
+                  <button
+                    onClick={() => setDiscountType("percent")}
+                    className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors ${
+                      discountType === "percent"
+                        ? "bg-ink text-primary-foreground"
+                        : "text-muted-foreground hover:bg-white"
+                    }`}
+                  >
+                    %
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max={discountType === "percent" ? 100 : cartTotal}
+                  value={discountValue}
+                  onChange={(e) => setDiscountValue(e.target.value)}
+                  placeholder={discountType === "amount" ? "0" : "0%"}
+                  className="h-8 w-full rounded-lg bg-white px-3 text-xs text-ink outline-none focus:ring-2 focus:ring-ember/40"
+                />
               </div>
               {discountAmount > 0 && (
                 <div className="flex items-center justify-between text-sm">
