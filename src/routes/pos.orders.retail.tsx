@@ -15,6 +15,7 @@ import {
   Banknote,
   Smartphone,
   CheckCircle2,
+  Tag,
 } from "lucide-react";
 
 export const Route = createFileRoute("/pos/orders/retail")({
@@ -46,6 +47,9 @@ function RetailSalePage() {
   const [cashReceived, setCashReceived] = useState("");
   const [saleNotes, setSaleNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
+  const [discountValue, setDiscountValue] = useState("");
+  const [showDiscount, setShowDiscount] = useState(false);
 
   useEffect(() => {
     if (!merchant) return;
@@ -84,6 +88,18 @@ function RetailSalePage() {
     () => cart.reduce((s, c) => s + Number(c.product.price) * c.quantity, 0),
     [cart],
   );
+
+  const discountAmount = useMemo(() => {
+    if (!discountValue) return 0;
+    const val = parseFloat(discountValue);
+    if (isNaN(val) || val <= 0) return 0;
+    if (discountType === "amount") {
+      return Math.min(val, cartTotal);
+    }
+    return Math.round(cartTotal * Math.min(val, 100) / 100);
+  }, [cartTotal, discountType, discountValue]);
+
+  const orderTotal = cartTotal - discountAmount;
 
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
 
@@ -129,7 +145,7 @@ function RetailSalePage() {
   }
 
   const received = parseFloat(cashReceived) || 0;
-  const change = paymentMethod === "cash" ? Math.max(0, received - cartTotal) : 0;
+  const change = paymentMethod === "cash" ? Math.max(0, received - orderTotal) : 0;
 
   function scrollToCart() {
     document.getElementById("retail-cart")?.scrollIntoView({ behavior: "smooth" });
@@ -157,6 +173,8 @@ function RetailSalePage() {
         cash_received: paymentMethod === "cash" ? received : undefined,
         change: change > 0 ? change : undefined,
         notes: saleNotes || undefined,
+        discount_type: discountAmount > 0 ? discountType : null,
+        discount_value: discountAmount > 0 ? parseFloat(discountValue) || null : null,
       });
 
       navigate({
@@ -339,12 +357,91 @@ function RetailSalePage() {
                   ))}
                 </div>
 
-                <div className="mt-4 border-t border-border pt-3">
+                <div className="mt-4 border-t border-border pt-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total</span>
-                    <span className="text-lg font-semibold text-ink">
+                    <span className="text-sm text-muted-foreground">Subtotal</span>
+                    <span className="text-sm font-medium text-ink">
                       NPR {cartTotal.toLocaleString()}
                     </span>
+                  </div>
+
+                  {/* Discount */}
+                  {!showDiscount && discountAmount === 0 && (
+                    <button
+                      onClick={() => setShowDiscount(true)}
+                      className="flex items-center gap-1 text-sm text-muted-foreground hover:text-ink"
+                    >
+                      <Tag className="h-3.5 w-3.5" />
+                      Add discount
+                    </button>
+                  )}
+                  {showDiscount && (
+                    <div className="space-y-2 rounded-lg bg-mist p-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Discount
+                        </span>
+                        <button
+                          onClick={() => {
+                            setShowDiscount(false);
+                            setDiscountValue("");
+                          }}
+                          className="text-[10px] text-muted-foreground hover:text-rose-600"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setDiscountType("amount")}
+                          className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors ${
+                            discountType === "amount"
+                              ? "bg-ink text-primary-foreground"
+                              : "text-muted-foreground hover:bg-white"
+                          }`}
+                        >
+                          NPR
+                        </button>
+                        <button
+                          onClick={() => setDiscountType("percent")}
+                          className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors ${
+                            discountType === "percent"
+                              ? "bg-ink text-primary-foreground"
+                              : "text-muted-foreground hover:bg-white"
+                          }`}
+                        >
+                          %
+                        </button>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max={discountType === "percent" ? 100 : cartTotal}
+                        value={discountValue}
+                        onChange={(e) => setDiscountValue(e.target.value)}
+                        placeholder={discountType === "amount" ? "0" : "0%"}
+                        className="h-8 w-full rounded-lg bg-white px-3 text-xs text-ink outline-none focus:ring-2 focus:ring-ember/40"
+                      />
+                    </div>
+                  )}
+                  {discountAmount > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-emerald-600">
+                        Discount{discountType === "percent" ? ` (${discountValue}%)` : ""}
+                      </span>
+                      <span className="text-sm font-medium text-emerald-600">
+                        -NPR {discountAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="border-t border-border pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-ink">Total</span>
+                      <span className="text-lg font-semibold text-ink">
+                        NPR {orderTotal.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -382,9 +479,23 @@ function RetailSalePage() {
                   </span>
                 </div>
               ))}
-              <div className="flex items-center justify-between pt-2 text-base">
+              <div className="flex items-center justify-between pt-2 text-sm">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-medium text-ink">NPR {cartTotal.toLocaleString()}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-emerald-600">
+                    Discount{discountType === "percent" ? ` (${discountValue}%)` : ""}
+                  </span>
+                  <span className="font-medium text-emerald-600">
+                    -NPR {discountAmount.toLocaleString()}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-2 border-t border-border text-base">
                 <span className="font-medium text-ink">Total</span>
-                <span className="font-semibold text-ink">NPR {cartTotal.toLocaleString()}</span>
+                <span className="font-semibold text-ink">NPR {orderTotal.toLocaleString()}</span>
               </div>
             </div>
 
@@ -449,7 +560,7 @@ function RetailSalePage() {
                 />
                 <div className="mt-2 grid grid-cols-4 gap-1.5">
                   {[
-                    { label: "Exact", value: cartTotal },
+                    { label: "Exact", value: orderTotal },
                     { label: "500", value: 500 },
                     { label: "1000", value: 1000 },
                     { label: "2000", value: 2000 },
@@ -493,7 +604,7 @@ function RetailSalePage() {
               {submitting ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                `Complete Sale · NPR ${cartTotal.toLocaleString()}`
+                `Complete Sale · NPR ${orderTotal.toLocaleString()}`
               )}
             </button>
           </div>
@@ -512,7 +623,7 @@ function RetailSalePage() {
               {cartCount} item{cartCount === 1 ? "" : "s"}
             </span>
             <span className="text-sm font-semibold">
-              NPR {cartTotal.toLocaleString()} · Review →
+              NPR {orderTotal.toLocaleString()} · Review →
             </span>
           </button>
         </div>

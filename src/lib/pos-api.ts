@@ -872,6 +872,8 @@ export const posApi = {
     cash_received?: number;
     change?: number;
     notes?: string;
+    discount_type?: "amount" | "percent" | null;
+    discount_value?: number | null;
   }) => {
     const userId = await getCurrentUserId();
 
@@ -879,6 +881,17 @@ export const posApi = {
       (sum, i) => sum + i.price * i.quantity,
       0
     );
+
+    // Calculate discount
+    let discountAmount = 0;
+    if (payload.discount_type && payload.discount_value) {
+      if (payload.discount_type === "amount") {
+        discountAmount = Math.min(payload.discount_value, subtotal);
+      } else if (payload.discount_type === "percent") {
+        discountAmount = Math.round(subtotal * Math.min(payload.discount_value, 100) / 100);
+      }
+    }
+    const totalAmount = subtotal - discountAmount;
 
     const noteLines = [
       "Counter sale · Paid by " + payload.payment_method.toUpperCase(),
@@ -900,7 +913,7 @@ export const posApi = {
         customer_id: userId,
         merchant_id: payload.merchant_id,
         status: "completed",
-        total_amount: subtotal,
+        total_amount: totalAmount,
         notes: noteLines.join("\n"),
         shipping_name: "",
         shipping_phone: "",
@@ -930,7 +943,7 @@ export const posApi = {
         merchant_id: payload.merchant_id,
         status: "completed",
         order_type: "retail",
-        total_amount: subtotal,
+        total_amount: totalAmount,
         notes: noteLines.join("\n"),
         is_walk_in: true,
         walk_in_name: payload.customer_name ?? null,
@@ -940,6 +953,9 @@ export const posApi = {
         cash_received: payload.payment_method === "cash" ? (payload.cash_received ?? 0) : 0,
         receipt_number: receiptNumber ?? null,
         paid_at: new Date().toISOString(),
+        discount_type: discountAmount > 0 ? payload.discount_type ?? null : null,
+        discount_value: discountAmount > 0 ? payload.discount_value ?? null : null,
+        discount_amount: discountAmount > 0 ? discountAmount : null,
       })
       .select()
       .single();
@@ -970,18 +986,20 @@ export const posApi = {
         merchant_id: payload.merchant_id,
         activity_type: "retail_order_placed",
         title: "Retail counter sale",
-        description: `Counter sale of ${itemSummary} — NPR ${subtotal.toLocaleString()}`,
+        description: `Counter sale of ${itemSummary} — NPR ${totalAmount.toLocaleString()}`,
         metadata: {
           retail_order_id: order.id,
           order_id: systemOrder.id,
           receipt_number: receiptNumber,
-          total: subtotal,
+          total: totalAmount,
+          subtotal: subtotal,
+          discount_amount: discountAmount,
           payment_method: payload.payment_method,
         },
       });
     }
 
-    return { ...order, retail_order_items: payload.items, receipt_number: receiptNumber } as any;
+    return { ...order, retail_order_items: payload.items, receipt_number: receiptNumber, total_amount: totalAmount, discount_amount: discountAmount } as any;
   },
 
   getRetailOrderForBill: async (orderId: string) => {
