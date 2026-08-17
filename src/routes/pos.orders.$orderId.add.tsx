@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { menuApi, type MenuItem } from "@/lib/api";
 import { posApi } from "@/lib/pos-api";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ArrowLeft, Search, Plus, Minus, Trash2, ShoppingCart } from "lucide-react";
+import { Loader2, ArrowLeft, ArrowRight, Search, Plus, Minus, Trash2, ShoppingCart } from "lucide-react";
 
 export const Route = createFileRoute("/pos/orders/$orderId/add")({
   head: () => ({ meta: [{ title: "Add Items · Zentro POS" }] }),
@@ -211,7 +211,7 @@ function AddItemsPage() {
 
   if (!order) {
     return (
-      <div className="mx-auto max-w-4xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4">
         <button
           onClick={() => navigate({ to: "/pos" as any })}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-ink"
@@ -284,10 +284,43 @@ function AddItemsPage() {
         )}
       </div>
 
-      {/* Menu + Cart */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      {/* Categories + Menu + Cart */}
+      <div className="grid gap-4 xl:grid-cols-[160px_minmax(0,1fr)_320px]">
+        {/* Category sidebar (wide screens) */}
+        <aside className="hidden min-w-0 xl:block">
+          <div className="glass sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl p-3">
+            <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Categories
+            </p>
+            <div className="flex flex-col gap-1">
+              {categories.map((cat) => {
+                const count =
+                  cat === "All"
+                    ? menuItems.length
+                    : menuItems.filter((i) => i.category === cat).length;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setCategory(cat)}
+                    className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                      category === cat
+                        ? "bg-ink text-primary-foreground"
+                        : "text-muted-foreground hover:bg-mist hover:text-ink"
+                    }`}
+                  >
+                    <span className="truncate">{cat}</span>
+                    <span className="shrink-0 rounded-full bg-background/60 px-1.5 py-0.5 text-[10px] opacity-70">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+
         {/* Menu */}
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -300,8 +333,8 @@ function AddItemsPage() {
             />
           </div>
 
-          {/* Category tabs */}
-          <div className="flex gap-1 overflow-x-auto">
+          {/* Category tabs (small screens; sidebar takes over on xl) */}
+          <div className="flex gap-1 overflow-x-auto xl:hidden">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -318,7 +351,7 @@ function AddItemsPage() {
           </div>
 
           {/* Menu grid */}
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
             {filteredMenu.map((item) => {
               const inCart = cart.find((c) => c.menu_item_id === item.id);
               return (
@@ -350,7 +383,10 @@ function AddItemsPage() {
         </div>
 
         {/* Cart */}
-        <div className="glass rounded-2xl p-4 lg:sticky lg:top-20 lg:h-fit">
+        <div
+          id="add-cart"
+          className="glass min-w-0 scroll-mt-36 rounded-2xl p-4 xl:sticky xl:top-20 xl:h-fit"
+        >
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-ink">New Items</h3>
             {cart.length > 0 && (
@@ -448,6 +484,55 @@ function AddItemsPage() {
           )}
         </div>
       </div>
+
+      {/* Spacer so the floating bar never covers in-flow content */}
+      {cart.length > 0 && <div className="h-24 xl:hidden" />}
+
+      {/* Floating bar — always reachable, no scrolling needed */}
+      {cart.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur-xl xl:hidden">
+          <div className="mx-auto flex max-w-4xl items-center gap-2">
+            <button
+              onClick={() =>
+                document
+                  .getElementById("add-cart")
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-mist px-4 py-2.5 text-left"
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink text-primary-foreground">
+                <ShoppingCart className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-ink">
+                  {cart.reduce((s, c) => s + c.quantity, 0)} new item
+                  {cart.reduce((s, c) => s + c.quantity, 0) === 1 ? "" : "s"}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Tap to review
+                </span>
+              </span>
+              <span className="font-display text-lg text-ink">
+                NPR {cartTotal.toLocaleString()}
+              </span>
+            </button>
+            <button
+              onClick={handleAddItems}
+              disabled={submitting}
+              className="flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-ink px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  Add to Order
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

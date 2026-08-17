@@ -144,7 +144,7 @@ function MerchantOrders() {
   const [activeTab, setActiveTab] = useState<"live" | "history">("live");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
-  const [orderTypeFilter, setOrderTypeFilter] = useState<"all" | "dine_in" | "pickup" | "delivery">("all");
+  const [orderTypeFilter, setOrderTypeFilter] = useState<"all" | "dine_in" | "pickup" | "delivery" | "retail">("all");
   const [tableFilter, setTableFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -508,6 +508,7 @@ function MerchantOrders() {
                 <option value="dine_in">Dine-in</option>
                 <option value="pickup">Pickup</option>
                 <option value="delivery">Delivery</option>
+                <option value="retail">Retail</option>
               </select>
 
               {/* Date from */}
@@ -683,7 +684,7 @@ function HistoryRow({ order, menuItemNames }: { order: Order; menuItemNames: Rec
                 {order.order_type === "dine_in" ? <UtensilsCrossed className="h-3 w-3" /> :
                  order.order_type === "delivery" ? <Truck className="h-3 w-3" /> :
                  <ShoppingBag className="h-3 w-3" />}
-                {order.order_type === "dine_in" ? "Dine-in" : order.order_type === "delivery" ? "Delivery" : "Pickup"}
+                {order.order_type === "dine_in" ? "Dine-in" : order.order_type === "delivery" ? "Delivery" : order.order_type === "retail" ? "Retail" : "Pickup"}
               </span>
             )}
             {order.order_type === "dine_in" && order.table_name_snapshot && (
@@ -779,12 +780,13 @@ function OrderCard({
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
               order.order_type === "dine_in" ? "bg-amber-50 text-amber-700" :
               order.order_type === "delivery" ? "bg-blue-50 text-blue-700" :
+              order.order_type === "retail" ? "bg-purple-50 text-purple-700" :
               "bg-gray-100 text-gray-700"
             }`}>
               {order.order_type === "dine_in" ? <UtensilsCrossed className="h-2.5 w-2.5" /> :
                order.order_type === "delivery" ? <Truck className="h-2.5 w-2.5" /> :
                <ShoppingBag className="h-2.5 w-2.5" />}
-              {order.order_type === "dine_in" ? "Dine-in" : order.order_type === "delivery" ? "Delivery" : "Pickup"}
+              {order.order_type === "dine_in" ? "Dine-in" : order.order_type === "delivery" ? "Delivery" : order.order_type === "retail" ? "Retail" : "Pickup"}
             </span>
           )}
           <span className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-widest font-medium ${STATUS_COLOR[order.status]}`}>

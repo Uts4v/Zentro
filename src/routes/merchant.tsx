@@ -33,21 +33,47 @@ export const Route = createFileRoute("/merchant")({
   component: MerchantLayout,
 });
 
-const navItems = [
-  { to: "/merchant/", label: "Overview", icon: LayoutDashboard },
-  { to: "/merchant/orders", label: "Orders", icon: ShoppingBag },
-  { to: "/merchant/menu", label: "Menu", icon: UtensilsCrossed },
-  { to: "/merchant/tables", label: "Tables", icon: QrCode },
-  { to: "/merchant/loyalty", label: "Loyalty", icon: Trophy },
-  { to: "/merchant/members", label: "Members", icon: Users },
-  { to: "/merchant/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/merchant/store", label: "Store", icon: Store },
-  { to: "/merchant/retail", label: "Retail", icon: Package },
-  { to: "/merchant/shift-workers", label: "Shift Workers", icon: Users },
-  { to: "/merchant/shifts", label: "Shifts", icon: Clock },
-  { to: "/merchant/daily-report", label: "Daily Report", icon: CalendarDays },
-  { to: "/merchant/fiscal-report", label: "Fiscal Report", icon: FileText },
-  { to: "/merchant/credit", label: "Credit Accounts", icon: CreditCard },
+const navSections: {
+  label: string;
+  items: { to: string; label: string; icon: typeof LayoutDashboard }[];
+}[] = [
+  {
+    label: "General",
+    items: [{ to: "/merchant/", label: "Overview", icon: LayoutDashboard }],
+  },
+  {
+    label: "Sales",
+    items: [
+      { to: "/merchant/orders", label: "Orders", icon: ShoppingBag },
+      { to: "/merchant/retail", label: "Retail", icon: Package },
+      { to: "/merchant/tables", label: "Tables", icon: QrCode },
+    ],
+  },
+  {
+    label: "Menu & Loyalty",
+    items: [
+      { to: "/merchant/menu", label: "Menu", icon: UtensilsCrossed },
+      { to: "/merchant/loyalty", label: "Loyalty", icon: Trophy },
+      { to: "/merchant/members", label: "Members", icon: Users },
+      { to: "/merchant/credit", label: "Credit Accounts", icon: CreditCard },
+    ],
+  },
+  {
+    label: "Insights & Reports",
+    items: [
+      { to: "/merchant/analytics", label: "Analytics", icon: BarChart3 },
+      { to: "/merchant/daily-report", label: "Daily Report", icon: CalendarDays },
+      { to: "/merchant/fiscal-report", label: "Fiscal Report", icon: FileText },
+    ],
+  },
+  {
+    label: "Team & Settings",
+    items: [
+      { to: "/merchant/shift-workers", label: "Shift Workers", icon: Users },
+      { to: "/merchant/shifts", label: "Shifts", icon: Clock },
+      { to: "/merchant/store", label: "Store", icon: Store },
+    ],
+  },
 ];
 
 function MerchantLayout() {
@@ -140,29 +166,38 @@ function MerchantLayout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              item.to === "/merchant/"
-                ? path === "/merchant" || path === "/merchant/"
-                : path.startsWith(item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to as any}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-ink text-primary-foreground"
-                    : "text-muted-foreground hover:bg-mist hover:text-ink"
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+          {navSections.map((section) => (
+            <div key={section.label}>
+              <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
+                {section.label}
+              </p>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive =
+                    item.to === "/merchant/"
+                      ? path === "/merchant" || path === "/merchant/"
+                      : path.startsWith(item.to);
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to as any}
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-ink text-primary-foreground"
+                          : "text-muted-foreground hover:bg-mist hover:text-ink"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Sign out */}

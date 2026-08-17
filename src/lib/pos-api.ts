@@ -890,6 +890,10 @@ export const posApi = {
       payload.notes ?? "",
     ].filter(Boolean);
 
+    // Generate receipt number
+    const { data: receiptNumber } = await supabase.rpc("generate_receipt_number");
+
+    // ── 1. Write to retail_orders (original behavior) ───────────────────────
     const { data: order, error: orderErr } = await supabase
       .from("retail_orders")
       .insert({
@@ -918,7 +922,66 @@ export const posApi = {
     );
     if (itemsErr) throw new Error(itemsErr.message);
 
-    return { ...order, retail_order_items: payload.items } as any;
+    // ── 2. Also write to orders table for unified reporting/history ─────────
+    const { data: systemOrder, error: sysOrderErr } = await supabase
+      .from("orders")
+      .insert({
+        customer_id: userId,
+        merchant_id: payload.merchant_id,
+        status: "completed",
+        order_type: "retail",
+        total_amount: subtotal,
+        notes: noteLines.join("\n"),
+        is_walk_in: true,
+        walk_in_name: payload.customer_name ?? null,
+        processed_by: userId,
+        payment_status: "paid",
+        payment_method: payload.payment_method,
+        cash_received: payload.payment_method === "cash" ? (payload.cash_received ?? 0) : 0,
+        receipt_number: receiptNumber ?? null,
+        paid_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (sysOrderErr) {
+      console.error("Failed to insert retail order into orders table:", sysOrderErr.message, sysOrderErr);
+    }
+
+    if (!sysOrderErr && systemOrder) {
+      const { error: sysItemsErr } = await supabase.from("order_items").insert(
+        payload.items.map((i) => ({
+          order_id: systemOrder.id,
+          menu_item_id: null,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+          subtotal: i.price * i.quantity,
+        }))
+      );
+      if (sysItemsErr) console.error("Failed to insert retail order_items:", sysItemsErr.message);
+
+      // ── 3. Log activity ───────────────────────────────────────────────────
+      const itemSummary = payload.items
+        .map((i) => `${i.name} x${i.quantity}`)
+        .join(", ");
+      await supabase.from("activity_log").insert({
+        customer_id: userId,
+        merchant_id: payload.merchant_id,
+        activity_type: "retail_order_placed",
+        title: "Retail counter sale",
+        description: `Counter sale of ${itemSummary} — NPR ${subtotal.toLocaleString()}`,
+        metadata: {
+          retail_order_id: order.id,
+          order_id: systemOrder.id,
+          receipt_number: receiptNumber,
+          total: subtotal,
+          payment_method: payload.payment_method,
+        },
+      });
+    }
+
+    return { ...order, retail_order_items: payload.items, receipt_number: receiptNumber } as any;
   },
 
   getRetailOrderForBill: async (orderId: string) => {

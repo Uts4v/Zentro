@@ -223,6 +223,18 @@ function MerchantMenu() {
 
   const visible = filterCat === "All" ? searchFiltered : searchFiltered.filter((i) => i.category === filterCat);
 
+  // Group items into sections by category so the menu is easy to browse.
+  // Items without a category fall into "Uncategorized" so nothing vanishes.
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, MenuItem[]> = {};
+    visible.forEach((item) => {
+      const cat = item.category?.trim() || "Uncategorized";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    return groups;
+  }, [visible]);
+
   const imgUploading = imgState.status === "processing" || imgState.status === "uploading";
   const imgPreviewUrl =
     imgState.status === "uploading" || imgState.status === "done"
@@ -314,18 +326,35 @@ function MerchantMenu() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((item) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              onEdit={() => openEdit(item)}
-              onDelete={() => handleDelete(item.id)}
-              onToggle={() => handleToggle(item.id)}
-              deleting={deleting === item.id}
-              toggling={toggling === item.id}
-              catClass={catClass(item.category)}
-            />
+        <div className="space-y-8">
+          {Object.entries(groupedItems).map(([cat, catItems]) => (
+            <section key={cat} className="space-y-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-2xl text-ink">{cat}</h2>
+                  <span className="rounded-full bg-mist px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {catItems.length}
+                  </span>
+                </div>
+                <span className="hidden text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 sm:block">
+                  {catItems.filter((i) => i.is_available).length} available
+                </span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {catItems.map((item) => (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    onEdit={() => openEdit(item)}
+                    onDelete={() => handleDelete(item.id)}
+                    onToggle={() => handleToggle(item.id)}
+                    deleting={deleting === item.id}
+                    toggling={toggling === item.id}
+                    catClass={catClass(item.category)}
+                  />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}

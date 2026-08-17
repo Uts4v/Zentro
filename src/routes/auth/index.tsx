@@ -134,12 +134,7 @@ function Auth() {
         .maybeSingle();
 
       if (mp) {
-        await supabase.auth.signOut();
-        navigate({
-          to: "/auth/merchant" as any,
-          search: { redirect: redirect || "/merchant" },
-          replace: true,
-        });
+        navigate({ to: "/merchant" as any, replace: true });
         return;
       }
     }

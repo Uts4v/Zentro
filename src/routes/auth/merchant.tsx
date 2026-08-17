@@ -125,7 +125,6 @@ function MerchantAuth() {
         return;
       }
 
-      await new Promise((r) => setTimeout(r, 300));
       navigate({ to: (redirect || "/merchant") as any, replace: true });
 
     } finally {

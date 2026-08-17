@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Printer,
   CreditCard,
-  Pencil,
   Check,
   X,
   Store,
@@ -52,8 +51,8 @@ function BillPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Discount editing state
-  const [editingDiscount, setEditingDiscount] = useState(false);
+  // Discount editing state — the panel itself is always visible while the
+  // bill is unpaid (see isUnpaid below); these just track the input values.
   const [discountType, setDiscountType] = useState<"amount" | "percent">(
     "amount"
   );
@@ -103,7 +102,6 @@ function BillPage() {
             }
           : prev
       );
-      setEditingDiscount(false);
     } catch (err: any) {
       setError(err.message || "Failed to update discount");
     } finally {
@@ -111,10 +109,12 @@ function BillPage() {
     }
   }
 
-  function handleStartEditDiscount() {
-    setEditingDiscount(true);
-    setDiscountType(bill?.discount_type ?? "amount");
-    setDiscountValue(bill?.discount_value ? String(bill.discount_value) : "");
+  // Reverts any unsaved edits in the discount fields back to whatever is
+  // currently saved on the order — it no longer hides the panel.
+  function handleResetDiscount() {
+    if (!bill) return;
+    setDiscountType(bill.discount_type ?? "amount");
+    setDiscountValue(bill.discount_value ? String(bill.discount_value) : "");
   }
 
   if (loading) {
@@ -134,10 +134,6 @@ function BillPage() {
   }
 
   const isUnpaid = bill.payment_status !== "paid";
-  const discountPct =
-    bill.discount_type === "percent" && bill.discount_value
-      ? bill.discount_value
-      : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -151,16 +147,6 @@ function BillPage() {
           Back to orders
         </button>
         <div className="flex gap-2">
-          {isUnpaid && (
-            <button
-              onClick={handleStartEditDiscount}
-              disabled={editingDiscount}
-              className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-mist disabled:opacity-50"
-            >
-              <Pencil className="h-4 w-4" />
-              {bill.discount_amount > 0 ? "Edit Discount" : "Add Discount"}
-            </button>
-          )}
           <button
             onClick={handlePrint}
             className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-mist"
@@ -190,8 +176,8 @@ function BillPage() {
         </div>
       )}
 
-      {/* Discount editor */}
-      {editingDiscount && (
+      {/* Discount editor — always visible while unpaid, no click needed to open it */}
+      {isUnpaid && (
         <div className="no-print glass rounded-2xl p-5">
           <h3 className="text-sm font-medium text-ink">Apply Discount</h3>
           <div className="mt-3 flex items-end gap-3">
@@ -238,12 +224,8 @@ function BillPage() {
             </div>
             <div className="flex gap-1.5 pb-0.5">
               <button
-                onClick={() => {
-                  setEditingDiscount(false);
-                  setDiscountValue(
-                    bill.discount_value ? String(bill.discount_value) : ""
-                  );
-                }}
+                onClick={handleResetDiscount}
+                title="Reset unsaved changes"
                 className="grid h-10 w-10 place-items-center rounded-xl border border-border text-muted-foreground hover:bg-mist"
               >
                 <X className="h-4 w-4" />
@@ -251,6 +233,7 @@ function BillPage() {
               <button
                 onClick={handleSaveDiscount}
                 disabled={savingDiscount}
+                title="Apply discount"
                 className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-600 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {savingDiscount ? (

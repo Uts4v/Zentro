@@ -48,7 +48,7 @@ export interface Order {
   total_amount: string;
   points_earned: number;
   notes: string;
-  order_type?: "dine_in" | "pickup" | "delivery";
+  order_type?: "dine_in" | "pickup" | "delivery" | "retail";
   table_id?: string | null;
   table_name_snapshot?: string;
   room_name_snapshot?: string;
@@ -81,7 +81,7 @@ export interface CreateOrderPayload {
     points_per_item: number;
   }[];
   notes?: string;
-  order_type?: "dine_in" | "pickup" | "delivery";
+  order_type?: "dine_in" | "pickup" | "delivery" | "retail";
   table_token?: string;
 }
 

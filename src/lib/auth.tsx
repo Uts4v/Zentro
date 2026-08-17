@@ -227,26 +227,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s?.user) {
         const userId = s.user.id;
 
-        // Only run ensureProfileExists on real auth events, NOT on
-        // INITIAL_SESSION (tab refocus). INITIAL_SESSION fires before the
-        // token refresh completes, so getUser() inside ensureProfileExists
-        // will 403 and trigger a FK violation. TOKEN_REFRESHED fires once
-        // the new JWT is ready and is safe to use.
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        // Show loading on a real sign-in until the profile fetches finish,
+        // so layouts that depend on merchantProfile never run against a
+        // transient null.
+        if (event === "SIGNED_IN") setLoading(true);
+
+        // ensureProfileExists is only needed when a profile row might not
+        // exist yet (OAuth first sign-in). Await it on SIGNED_IN so
+        // fetchMerchantProfile never reads a not-yet-created row. On
+        // TOKEN_REFRESHED the rows already exist, so run it in the
+        // background instead of blocking the profile fetches — the await
+        // here was serializing extra getUser()/select round-trips into
+        // every page load and tab refocus.
+        //
+        // Not run on INITIAL_SESSION: it fires before the token refresh
+        // completes, so getUser() inside ensureProfileExists can 403 and
+        // trigger an FK violation. TOKEN_REFRESHED is the first point where
+        // the JWT is guaranteed valid after a refocus.
+        if (event === "SIGNED_IN") {
           await ensureProfileExists(userId, s.user);
+        } else if (event === "TOKEN_REFRESHED") {
+          void ensureProfileExists(userId, s.user);
         }
 
-        pendingFetches.current = 2;
+        // Always increment, never reset. SIGNED_IN and TOKEN_REFRESHED can
+        // fire back-to-back, so several pairs of fetches can be in flight
+        // at once. Resetting to 2 clobbered the count and let
+        // setLoading(false) run while a later merchant-profile fetch was
+        // still pending — the merchant layout then saw merchantProfile ===
+        // null and signed the user straight back out.
+        pendingFetches.current += 2;
 
-        fetchProfile(userId).finally(() => {
+        const finishFetch = () => {
           pendingFetches.current -= 1;
-          if (pendingFetches.current === 0) setLoading(false);
-        });
+          if (pendingFetches.current <= 0) {
+            pendingFetches.current = 0;
+            setLoading(false);
+          }
+        };
 
-        fetchMerchantProfile(userId).finally(() => {
-          pendingFetches.current -= 1;
-          if (pendingFetches.current === 0) setLoading(false);
-        });
+        fetchProfile(userId).finally(finishFetch);
+        fetchMerchantProfile(userId).finally(finishFetch);
       } else {
         setProfile(null);
         setMerchantProfile(null);

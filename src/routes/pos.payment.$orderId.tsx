@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { orderApi, type Order } from "@/lib/api";
 import { posApi, creditApi, type CreditAccount, type ReceiptData } from "@/lib/pos-api";
 import { Receipt } from "@/components/Receipt";
-import { Loader2, ArrowLeft, Banknote, Smartphone, Split, CreditCard, Pencil, Check, X, Printer, Download, Plus } from "lucide-react";
+import { Loader2, ArrowLeft, Banknote, Smartphone, Split, CreditCard, Check, Printer, Download, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/pos/payment/$orderId")({
   head: () => ({ meta: [{ title: "Payment · Zentro POS" }] }),
@@ -33,7 +33,6 @@ function PaymentPage() {
   const [creditSearch, setCreditSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editingDiscount, setEditingDiscount] = useState(true);
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [discountValue, setDiscountValue] = useState("");
   const [savingDiscount, setSavingDiscount] = useState(false);
@@ -77,6 +76,11 @@ function PaymentPage() {
       try {
         const data = await orderApi.get(orderId);
         setOrder(data);
+        // Pre-fill the discount editor if the order already has one applied
+        if (data.discount_type) {
+          setDiscountType(data.discount_type as "amount" | "percent");
+          setDiscountValue(data.discount_value ? String(data.discount_value) : "");
+        }
         setFonepayAmount(String(Number(data.total_amount)));
         // If already paid, load receipt directly
         if (data.payment_status === "paid") {
@@ -154,13 +158,38 @@ function PaymentPage() {
               ...prev,
               discount_type: result.discount_type as any,
               discount_value: result.discount_value,
-              discount_amount: String(result.discount_amount),
+              discount_amount: result.discount_amount,
               total_amount: String(result.total),
             }
           : prev
       );
+      if (val <= 0) setDiscountValue("");
     } catch (err: any) {
       setError(err.message || "Failed to update discount");
+    } finally {
+      setSavingDiscount(false);
+    }
+  }
+
+  async function handleClearDiscount() {
+    if (!order) return;
+    setSavingDiscount(true);
+    try {
+      const result = await posApi.updateOrderDiscount(order.id, null, null);
+      setOrder((prev) =>
+        prev
+          ? {
+              ...prev,
+              discount_type: null,
+              discount_value: null,
+              discount_amount: 0,
+              total_amount: String(result.total),
+            }
+          : prev
+      );
+      setDiscountValue("");
+    } catch (err: any) {
+      setError(err.message || "Failed to remove discount");
     } finally {
       setSavingDiscount(false);
     }
@@ -426,77 +455,81 @@ function PaymentPage() {
         </div>
       </div>
 
-      {/* Discount editor */}
-      {!editingDiscount && (
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              setEditingDiscount(true);
-              setDiscountType((order?.discount_type as "amount" | "percent") ?? "amount");
-              setDiscountValue(order?.discount_value ? String(order.discount_value) : "");
-            }}
-            className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-mist"
-          >
-            <Pencil className="h-3 w-3" />
-            {discountAmt > 0 ? "Edit Discount" : "Add Discount"}
-          </button>
-        </div>
-      )}
-      {editingDiscount && (
-        <div className="glass rounded-2xl p-4">
+      {/* Discount editor — always visible so staff can see a discount can be given */}
+      <div className="glass rounded-2xl p-4">
+        <div className="flex items-center justify-between">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Apply Discount
+            Apply Discount{" "}
+            <span className="ml-1 normal-case tracking-normal">(optional)</span>
           </p>
-          <div className="mt-2 flex items-end gap-2">
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => setDiscountType("amount")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  discountType === "amount"
-                    ? "bg-ink text-primary-foreground"
-                    : "border border-border text-muted-foreground hover:bg-mist"
-                }`}
-              >
-                NPR
-              </button>
-              <button
-                onClick={() => setDiscountType("percent")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  discountType === "percent"
-                    ? "bg-ink text-primary-foreground"
-                    : "border border-border text-muted-foreground hover:bg-mist"
-                }`}
-              >
-                %
-              </button>
-            </div>
-            <input
-              type="number"
-              value={discountValue}
-              onChange={(e) => setDiscountValue(e.target.value)}
-              placeholder={discountType === "amount" ? "NPR" : "%"}
-              className="flex-1 h-9 rounded-lg bg-mist px-3 text-xs text-ink outline-none focus:ring-2 focus:ring-ember/40"
-            />
+          {discountAmt > 0 && (
             <button
-              onClick={() => setEditingDiscount(false)}
-              className="grid h-9 w-9 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-mist"
+              onClick={handleClearDiscount}
+              disabled={savingDiscount}
+              className="text-xs text-muted-foreground transition-colors hover:text-rose-600 disabled:opacity-50"
             >
-              <X className="h-3.5 w-3.5" />
+              Remove
+            </button>
+          )}
+        </div>
+        <div className="mt-2 flex items-end gap-2">
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setDiscountType("amount")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                discountType === "amount"
+                  ? "bg-ink text-primary-foreground"
+                  : "border border-border text-muted-foreground hover:bg-mist"
+              }`}
+            >
+              NPR
             </button>
             <button
-              onClick={handleSaveDiscount}
-              disabled={savingDiscount}
-              className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-600 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              onClick={() => setDiscountType("percent")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                discountType === "percent"
+                  ? "bg-ink text-primary-foreground"
+                  : "border border-border text-muted-foreground hover:bg-mist"
+              }`}
             >
-              {savingDiscount ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Check className="h-3.5 w-3.5" />
-              )}
+              %
             </button>
           </div>
+          <input
+            type="number"
+            min="0"
+            value={discountValue}
+            onChange={(e) => setDiscountValue(e.target.value)}
+            placeholder={discountType === "amount" ? "Discount in NPR…" : "Discount %…"}
+            className="h-9 flex-1 rounded-lg bg-mist px-3 text-sm text-ink outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-ember/40"
+          />
+          <button
+            onClick={handleSaveDiscount}
+            disabled={savingDiscount}
+            title="Apply discount"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {savingDiscount ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
+            )}
+          </button>
         </div>
-      )}
+        {discountAmt > 0 && (
+          <p className="mt-2 text-xs text-emerald-600">
+            Applied: -NPR {discountAmt.toLocaleString()}
+            {order.discount_type === "percent"
+              ? ` (${order.discount_value}%)`
+              : ""}
+          </p>
+        )}
+        {discountAmt === 0 && !discountValue && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Leave empty to skip — the total will be charged in full.
+          </p>
+        )}
+      </div>
 
       {/* Payment method selector */}
       <div className="grid grid-cols-4 gap-2">
