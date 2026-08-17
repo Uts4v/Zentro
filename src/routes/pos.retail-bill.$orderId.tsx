@@ -23,6 +23,9 @@ interface RetailBillData {
   merchant_logo: string | null;
   items: { name: string; quantity: number; price: number; subtotal: number }[];
   subtotal: number;
+  discount_type: "amount" | "percent" | null;
+  discount_value: number | null;
+  discount_amount: number;
   total: number;
   created_at: string;
   notes: string | null;
@@ -186,6 +189,19 @@ function RetailBillPage() {
             <span className="text-muted-foreground">Subtotal</span>
             <span className="text-ink">NPR {bill.subtotal.toLocaleString()}</span>
           </div>
+          {bill.discount_amount > 0 && (
+            <div className="flex justify-between text-xs">
+              <span className="text-emerald-600">
+                Discount
+                {bill.discount_type === "percent" && bill.discount_value
+                  ? ` (${bill.discount_value}%)`
+                  : ""}
+              </span>
+              <span className="font-medium text-emerald-600">
+                -NPR {bill.discount_amount.toLocaleString()}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between border-t border-border pt-2 text-sm font-semibold">
             <span className="text-ink">TOTAL</span>
             <span className="text-ink">NPR {bill.total.toLocaleString()}</span>

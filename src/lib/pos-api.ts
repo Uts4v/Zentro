@@ -918,6 +918,9 @@ export const posApi = {
         shipping_name: "",
         shipping_phone: "",
         shipping_address: "",
+        discount_type: discountAmount > 0 ? payload.discount_type ?? null : null,
+        discount_value: discountAmount > 0 ? payload.discount_value ?? null : null,
+        discount_amount: discountAmount,
       })
       .select()
       .single();
@@ -1029,6 +1032,9 @@ export const posApi = {
       merchant_logo: merchant?.logo_url ?? null,
       items,
       subtotal: items.reduce((s: number, i: any) => s + i.subtotal, 0),
+      discount_type: order.discount_type ?? null,
+      discount_value: order.discount_value ?? null,
+      discount_amount: Number(order.discount_amount ?? 0),
       total: Number(order.total_amount),
       created_at: order.created_at,
       notes: order.notes ?? null,

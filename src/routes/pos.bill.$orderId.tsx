@@ -289,7 +289,7 @@ function BillPage() {
           </div>
           <div className="mt-1 flex justify-between">
             <span>
-              {bill.order_type === "dine_in" ? "Dine-in" : bill.order_type === "delivery" ? "Delivery" : "Pickup"}
+              {bill.order_type === "dine_in" ? "Dine-in" : bill.order_type === "delivery" ? "Delivery" : bill.order_type === "retail" ? "Retail" : "Pickup"}
               {bill.table_name ? ` · ${bill.room_name ? `${bill.room_name} · ` : ""}${bill.table_name}` : ""}
             </span>
             <span>Cashier: {bill.cashier_name}</span>
